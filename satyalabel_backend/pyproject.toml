@@ -63,6 +63,9 @@ dev = [
     "pre-commit>=3.7.1",
 ]
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

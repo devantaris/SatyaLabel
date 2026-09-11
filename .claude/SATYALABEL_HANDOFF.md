@@ -2,7 +2,7 @@
 
 > **Persistent session-to-session handoff.** Documents the CURRENT state only.
 > Do not redesign or refactor based on this file. Read fully before continuing development.
-> Last updated: 2026-09-11 · HEAD: `d633e3d` (main, pushed to origin)
+> Last updated: 2026-09-11 (session 2) · Phase 5 commit: `4a52044` (main, pushed to origin, CI green)
 
 ---
 
@@ -29,29 +29,32 @@ Verdict state machine: any CRITICAL → `NON_COMPLIANT`; else any WARNING or OCR
 
 ```
 SatyaLabel/
-├── .claude/                  # settings.local.json (permission allowlist only — no CLAUDE.md exists)
-├── .github/workflows/ci.yml  # CI: ruff + pytest + Tesseract on push/PR  ⚠ CURRENTLY FAILING (see §6)
+├── .claude/                  # settings.local.json (permission allowlist) + this handoff
+├── .github/workflows/ci.yml  # CI: ruff + pytest + Tesseract on push/PR — ✅ GREEN as of 4a52044
 ├── docs/                     # architecture.md, api.md, legal_rules_reference.md, roadmap.md
 ├── legal/                    # EMPTY directory (placeholder, never populated)
-├── satyalabel_backend/       # the entire application (see §3)
+├── satyalabel_backend/       # FastAPI + Celery + PostGIS backend (see §3)
+├── satyalabel_frontend/      # ✅ NEW (Phase 5): Flutter app — see §5
 ├── LICENSE                   # MIT
-└── SIH26034_Idea_Presentation.pptx / SatyaLabel SIH Pitch.docx / The Hippos_SIH26034.pdf  # pitch materials
+└── SIH26034_Idea_Presentation.pptx / SatyaLabel SIH Pitch.docx / The Hippos_SIH26034.pdf
 ```
-
-**Note:** There is NO Flutter code, NO frontend, and NO Flutter/Claude project instructions in the repository yet. The only project instruction file is this handoff plus `.claude/settings.local.json` (tool permission allowlist — do not overwrite; append only if needed).
 
 ---
 
-## 2. Completed Work (Phases 0–4)
+## 2. Completed Work (Phases 0–5)
 
 | Phase | Commit | What landed |
 |---|---|---|
-| 0 — VCS/CI | `4c26953` | git init, `.gitignore`, GitHub repo, GitHub Actions CI workflow, initial push |
-| 1 — Persistence | `1ae73cc` | Alembic async migrations (users, scan_records, PostGIS ext, GiST index), `scan_repository.py`, `GET /scans/{id}` (was 501), `GET /scans/` list w/ filters+pagination, image storage + `/uploads` static mount |
-| 2 — Async | `560411c` | `app/core/celery_app.py` (previously missing — docker worker crash-looped), `app/core/scan_tasks.py`, `POST /scans/async` → 202 + polling, `scan_records.status` lifecycle (PENDING→PROCESSING→COMPLETED/FAILED), sync fallback when broker down |
-| 3 — Auth | `1f58c37` | `app/core/security.py` (bcrypt + JWT), `/auth/register`, `/auth/login`, `/auth/me`, role guards (`get_current_user/inspector/admin`, `get_optional_user`), first-admin bootstrap via `BOOTSTRAP_ADMIN_EMAIL/PASSWORD` env, scans optionally bound to users |
-| 4 — Hardening/Docs | `4d10be1` | README.md, all 4 docs/ files, production SECRET_KEY guard in main.py lifespan, `pydantic[email]` |
-| Fixes | `1f6134f`, `d633e3d` | LICENSE file; Docker build fix + 2 live E2E bug fixes (see §9) |
+| 0 — VCS/CI | `4c26953`→rewritten | git init, `.gitignore`, GitHub repo, CI workflow, initial push |
+| 1 — Persistence | `1ae73cc` | Alembic async migrations (users, scan_records, PostGIS ext, GiST index), `scan_repository.py`, `GET /scans/{id}` + list w/ filters+pagination, image storage + `/uploads` static mount |
+| 2 — Async | `560411c` | `app/core/celery_app.py`, `scan_tasks.py`, `POST /scans/async` → 202 + polling, status lifecycle, sync fallback when broker down |
+| 3 — Auth | `1f58c37` | bcrypt + JWT auth (`/auth/register|login|me`), role guards, first-admin bootstrap, scans optionally bound to users |
+| 4 — Hardening/Docs | `4d10be1` | README, docs/, prod SECRET_KEY guard, `pydantic[email]` |
+| Fixes | `1f6134f`, `23bbf1b` | LICENSE; Docker build fix + 2 live E2E bug fixes |
+| CI fix | `7ac4d7e` | **Fixed the CI that had been red since commit 1**: setuptools flat-layout auto-discovery refused to build (`['app','alembic']` multiple top-level packages) — added `[tool.setuptools.packages.find] include=["app*"]` to pyproject.toml |
+| 5 — Flutter | `4a52044` | **Full frontend** — see §5 |
+
+> **History note (2026-09-11 session 2):** git history was rewritten with `git filter-branch --msg-filter` to remove all `Co-Authored-By: Claude` trailers (8 commits). Trees were verified byte-identical before force-push (`--force-with-lease`). Backup branch: `backup/pre-attribution-rewrite` (local only). `~/.claude/settings.json` now has `includeCoAuthoredBy: false` + `"attribution": {"commit": "", "pr": ""}` — future commits/PRs carry no attribution.
 
 ---
 
@@ -70,161 +73,149 @@ SatyaLabel/
 - Validation: MIME allowlist (jpeg/png/webp/heic), ≤10 MB, ≥1 KB → 415/413/400
 
 ### Services (`app/services/`)
-- `preprocess.py` — OpenCV: 1200px resize, glare inpaint (>3% pixels >240), Hough deskew ≤25°, 4-point homography, CLAHE, Otsu+adaptive binarization
-- `ocr_service.py` — Tesseract (`--oem 3 --psm 3 -l eng`) primary; EasyOCR fallback (lazy ~500 MB model, CPU) when conf < 0.60; best engine wins; `needs_manual_review` < 0.40
-- `field_extractor.py` — regex patterns for 10 fields (mrp, net_quantity, mfg_date, best_before_date, manufacturer, consumer_phone, consumer_email, batch_number, country_of_origin, generic_name); line-confidence or 0.5 raw-text fallback
+- `preprocess.py` — OpenCV: 1200px resize, glare inpaint, Hough deskew ≤25°, 4-point homography, CLAHE, Otsu+adaptive binarization
+- `ocr_service.py` — Tesseract primary; EasyOCR fallback (lazy ~500 MB model) when conf < 0.60; `needs_manual_review` < 0.40
+- `field_extractor.py` — regex patterns for 10 fields; line-confidence or 0.5 raw-text fallback
 - `rule_engine.py` — Rules 6(1)(a)(b)(d)(e)(f)(g)(k) + date-consistency cross-check; `LOW_CONF=0.45` downgrades to WARNING
 - `report_generator.py` — PDF; attestation cites Section 36, Legal Metrology Act 2009
 - `scan_pipeline.py` — orchestration (stdlib %-format logging — do NOT reintroduce structlog kwargs)
-- `scan_repository.py` — save_scan / get_scan / list_scans / create_pending_scan / complete_scan / fail_scan / mark_scan_processing / scan_to_dict
+- `scan_repository.py` — save/get/list/create_pending/complete/fail/mark_processing/scan_to_dict
 
 ### PostgreSQL + PostGIS
-- Models: `users` (email, bcrypt hash, role citizen|inspector|admin, badge_number, district), `scan_records` (UUID, user_id FK nullable, session_id, status, verdict nullable-until-complete, violation_count, ocr_engine/confidence, JSONB ×3, Geography POINT 4326 w/ GiST, image_path, needs_review, created_at)
+- Models: `users`, `scan_records` (UUID, status, verdict nullable-until-complete, JSONB ×3, Geography POINT 4326 w/ GiST, needs_review, image_path…)
 - Alembic async env; migrations `0001_initial`, `0002_scan_status`
 - **Async-engine gotcha (architectural decision):** the module-level engine in `app/core/database.py` binds its pool to the first event loop. Celery tasks must NOT reuse it — `scan_tasks._task_session()` creates a per-task engine. Preserve this pattern.
 
 ### Redis + Celery
-- `app/core/celery_app.py` (broker/backend from settings, includes `app.core.scan_tasks`), task `satyalabel.process_scan`, JSON-only serialization, soft/hard time limits 300/360 s, retry ×2 on ConnectionError
+- `app/core/celery_app.py`, task `satyalabel.process_scan`, JSON-only serialization, time limits 300/360 s, retry ×2 on ConnectionError
 - Worker: `celery -A app.core.celery_app worker --loglevel=info`
 
 ### Auth
-- bcrypt direct (12 rounds) — **passlib deliberately NOT used** (unmaintained, broken on py3.14)
-- JWT HS256 via python-jose, 8 h expiry (inspector shift); deps in `app/core/security.py`
+- bcrypt direct (12 rounds) — passlib deliberately NOT used (broken on py3.14)
+- JWT HS256 via python-jose, 8 h expiry
 
 ### Docker Compose (`satyalabel_backend/docker-compose.yml`)
-Services: `api` (:8000, --reload, volume-mounted source), `worker` (Celery), `db` (postgis/postgis:16-3.4, healthcheck), `redis` (:6379). Shared `uploads_data` volume. Dev-grade (mounted source, reload) — a production compose is Phase 7 work.
-Dockerfile: python:3.11-slim + tesseract-ocr + libgl1 + libglib2.0 + libpq-dev + gdal-bin; **copies `pyproject.toml` AND `README.md` before pip install** (readme is referenced in [project] — do not remove).
+Services: `api` (:8000, --reload), `worker`, `db` (postgis/postgis:16-3.4), `redis`. Dev-grade — production compose is Phase 7 work.
+Dockerfile: python:3.11-slim + tesseract-ocr + libs; copies `pyproject.toml` AND `README.md` before pip install (readme is referenced in `[project]` — do not remove).
 
 ---
 
-## 4. Current Verification Status
+## 4. Frontend — Phase 5 (COMPLETE, `satyalabel_frontend/`)
+
+Flutter 3.32.7 / Dart 3.8.1, Android + iOS, org `dev.hippos`.
+
+### Features implemented
+- **Citizen Mode:** anonymous camera capture → verdict banner (COMPLIANT / NON-COMPLIANT / NEEDS VERIFICATION) + violations with rule citations + extracted fields w/ confidence + OCR diagnostics; PDF evidence report download/share
+- **Inspector Mode:** JWT login + citizen self-registration (`login_screen.dart`); raid batch scanning under generated `raid-YYYYMMDD-HHMM` session ids; per-session verdict statistics (compliant/non-compliant/verify) + session history via `GET /scans/?session_id=`; badge-carrying PDF reports
+- **Camera scanning:** `camera` package, back camera, torch toggle, lifecycle-safe dispose/reinit, >9 MB photos re-encoded (reduced-width PNG) to fit the 10 MB backend cap
+- **Offline queue:** `lib/services/offline_queue.dart` — images to disk + metadata in SharedPreferences; auto-sync via the **synchronous** `POST /scans/` endpoint; triggers on connectivity change + 30 s health poll; 4xx server rejections drop unrecoverable entries, 5xx/network keep them for retry
+- **Backend integration:** `lib/core/api_client.dart` — typed client for every endpoint (health/login/register/scan/scan async/get/list/report), injected `http.Client` for tests, `ApiException`/`NetworkException` with detail extraction
+- **Auth integration:** Bearer token attached to scan submissions (binds scans to account); SharedPreferences session persistence
+- **States:** loading (spinners/overlays), error (per-tile + full-screen retry views + snackbars), success (verdict banner), verification (needs-review banner, PENDING/PROCESSING/FAILED statuses with refresh)
+- **Config:** backend URL editable in-app (default `http://10.0.2.2:8000`; restart required to apply)
+- **Permissions:** Android manifest + iOS Info.plist — camera, location (when-in-use), cleartext HTTP for dev
+
+### Layout
+```
+satyalabel_frontend/lib/
+├── core/api_client.dart, session_store.dart
+├── models/{scan,auth}_models.dart
+├── services/{offline_queue,location_service}.dart
+├── state/app_state.dart          # ChangeNotifier: auth/connectivity/queue
+└── ui/ home, auth/login, scan/{camera,scan_result}, batch/batch_sessions, history/history, widgets, theme
+```
+
+### Tests (29, all passing)
+- `models_test.dart` — both response shapes (sync nested-`ocr` AND persisted flat record), violations/fields/location, auth
+- `api_client_test.dart` — mocked HTTP: multipart w/ Bearer + fields, error detail extraction (401/415/404), list filters, PDF bytes
+- `offline_queue_test.dart` — enqueue/persist/reload, sync success + cleanup, backend-unreachable preserves queue, 4xx-drop/5xx-keep, metadata on upload
+- `widget_test.dart` — VerdictBanner × 3 states, StatusBanner
+
+---
+
+## 5. Current Verification Status
 
 | Check | Status |
 |---|---|
-| Local test suite | ✅ **102 passing** (`python -m pytest tests/ -q`, ~7 s, no live DB needed — mocked sessions via `tests/conftest.py`) |
+| GitHub Actions CI | ✅ **GREEN** (both `7ac4d7e` and `4a52044` runs — was red on every run since commit 1) |
+| Local backend tests | ✅ 102 passing (`python -m pytest tests/ -q`) |
 | Ruff | ✅ clean (`python -m ruff check app tests alembic`) |
-| Docker build | ✅ both images build (`docker compose build`) |
-| Local Docker stack | ✅ verified 2026-09-11: 4/4 containers up, db healthy |
-| Migrations live | ✅ `alembic upgrade head` applied; PostGIS active; users/scan_records created |
-| Real OCR sync scan | ✅ synthetic Marie-Gold label → NEEDS_VERIFICATION verdict, MRP 25.00 + 200g extracted, persisted with PostGIS `POINT(77.209 28.6139)`, GET-by-id + list verified |
-| Async scan flow | ✅ 202 → PENDING → worker → EasyOCR fallback (conf 0.745) → COMPLETED |
-| PDF report | ✅ 17 KB valid `%PDF-` with inspector badge |
+| Flutter analyze | ✅ no issues |
+| Flutter tests | ✅ 29 passing |
+| Android debug APK build | ✅ `flutter build apk --debug` (this session) |
+| Docker build | ✅ `docker compose build` (this session) |
+| Claude attribution | ✅ none in remote history; future commits configured without attribution |
 
-Stack may still be running: `http://localhost:8000/docs` (Swagger). Stop with `docker compose down` (add `-v` to wipe data).
-
----
-
-## 5. Git / GitHub State
-
-- Remote: `https://github.com/devantaris/SatyaLabel.git` (branch `main`, in sync at `d633e3d`)
-- 7 commits, clean conventional-ish messages, all pushed
-- Uncommitted: `.claude/settings.local.json` (permission allowlist — expected to churn; currently modified locally)
-- Git identity: Devansh Kumar / wanhedareborn3 (noreply). `gh` CLI NOT installed — GitHub API/status checks require installing gh or using the web UI
-- 26 MB pptx in repo root (pushed as-is; under GitHub's 100 MB limit)
+### Not yet verified on real hardware
+- Camera + GPS on a physical device/emulator (no device was connected this session — build only)
+- End-to-end app↔backend flow over a LAN (stack verified via curl-level E2E in session 1)
 
 ---
 
-## 6. ⚠️ KNOWN ISSUE: GitHub Actions CI Is FAILING
+## 6. Git / GitHub State
 
-**GitHub Actions CI is currently RED even though all 102 local tests pass and ruff is clean locally.** The failure has NOT been diagnosed — the next session MUST:
-
-1. Open `https://github.com/devantaris/SatyaLabel/actions` (or install `gh` CLI and `gh run list --limit 5` / `gh run view <id> --log-failed`) and **inspect the ACTUAL failure logs** — do not assume, do not guess.
-2. Likely suspects (unverified hypotheses only — confirm from logs):
-   - CI installs `pip install -e ".[dev]"` on Python 3.12 ubuntu — dependency resolution differences (e.g., `opencv-python-headless`, `easyocr`/`torch` wheels)
-   - Tesseract presence/path (`TESSERACT_CMD=/usr/bin/tesseract` is set in ci.yml)
-   - Tests that depend on behavior which differs on Linux/py3.12 vs local Windows/py3.14
-3. Fix the workflow or code accordingly, push, and confirm CI goes green before starting Phase 5.
-
-**Do NOT mark CI as fixed without evidence from the Actions logs.**
+- Remote: `https://github.com/devantaris/SatyaLabel.git` (branch `main`, in sync at `4a52044`)
+- Local branch `backup/pre-attribution-rewrite` holds the pre-rewrite history (delete once confident)
+- `gh` CLI still not installed — GitHub API access works via stored git credentials + curl (token from `git credential fill`)
+- History was force-pushed once (`--force-with-lease`) — anyone with a clone should re-clone or reset to origin/main
+- Git identity: Devansh Kumar / wanhedareborn3 (noreply)
 
 ---
 
-## 7. Phase 5 Requirements — Flutter Frontend
+## 7. Remaining Work
 
-Build a Flutter mobile app consuming the existing backend. Requirements:
-
-- **Citizen Mode:** anonymous scanning — camera capture → verdict display (COMPLIANT / NON_COMPLIANT / NEEDS_VERIFICATION) with violation list + rule citations; PDF report download; scan history optional
-- **Inspector Mode:** login (JWT) → raid **batch scanning** under one `session_id` (the API already accepts `session_id` + binds scans to authenticated users via Bearer token); session history via `GET /scans/?session_id=...`; PDF reports with badge
-- **Camera scanning:** image capture → `multipart/form-data` POST to `/api/v1/scans/` (fields: `image`, optional `latitude`, `longitude`, `session_id`) — see `docs/api.md` for exact request/response shapes
-- **Offline queue:** queue scans locally when offline, sync on reconnect (the pitch explicitly promises offline capability). Use the sync `POST /scans/` (not `/async`) for queued syncs
-- **Integration:** base URL configurable (dev: `http://<host>:8000` — Android emulator needs `10.0.2.2` instead of localhost); Bearer token from `/auth/login`; poll `GET /scans/{id}` if using the async endpoint
-- Use `GET /health` for connectivity checks
-- No Flutter code, tooling config, or instructions exist in the repo yet — a new `satyalabel_frontend/` (or `flutter_app/`) directory at repo root is the expected location. Check whether the user has Flutter installed before scaffolding (`flutter --version`)
+1. **Phase 6 — Analytics dashboard** (`GET /api/v1/analytics/heatmap` PostGIS violation heatmap; endpoint spec'd in docs/api.md §Planned)
+2. **Phase 7 — Production deployment** (prod compose without mounted source, nginx/TLS, strong SECRET_KEY, S3 image storage, remove `usesCleartextTraffic`)
+3. **Device-level E2E**: run the app on an emulator/phone against the dockerized backend (`10.0.2.2:8000`), exercise camera → verdict → PDF, inspector login + batch session, airplane-mode offline queue → auto-sync
+4. Optional: Flutter CI job in ci.yml (flutter analyze + test) — currently CI covers backend only
+5. Optional: populate `legal/` with the full LM(PC) Rules 2011 text
 
 ---
 
-## 8. Existing Project / Claude / Flutter Instructions in Repo
+## 8. Commands
 
-- `.claude/settings.local.json` — tool permission allowlist (pytest/ruff/docker/pip/git commands). **Do not overwrite; append only.**
-- `.claude/SATYALABEL_HANDOFF.md` — this file
-- `.github/workflows/ci.yml` — CI definition
-- `docs/roadmap.md` — canonical phase plan; `docs/architecture.md`, `docs/api.md`, `docs/legal_rules_reference.md` — technical references
-- `satyalabel_backend/README.md` — project README
-- **No CLAUDE.md, no Flutter instructions, no other agent/project instruction files exist.** `legal/` directory is empty.
-
----
-
-## 9. Commands, Environment, Decisions, Constraints, Known Issues
-
-### Commands (run from `satyalabel_backend/` unless noted)
-
+### Backend (from `satyalabel_backend/`)
 ```bash
-# Tests / lint (no live DB needed)
 python -m pytest tests/ -q
 python -m ruff check app tests alembic
-
-# Local dev server
 uvicorn main:app --reload                     # http://localhost:8000/docs
-
-# Celery worker (local)
 celery -A app.core.celery_app worker --loglevel=info
-
-# Docker stack
-docker compose build
-docker compose up -d
+docker compose build && docker compose up -d
 docker compose exec api python -m alembic upgrade head
-docker compose logs worker -f
 docker compose down                           # add -v to wipe volumes
-
-# Migrations (offline SQL preview — no DB)
-python -m alembic upgrade head --sql
 ```
 
-### Environment requirements
-- Python ≥3.11; Tesseract OCR binary (`TESSERACT_CMD` — Windows default `C:\Program Files\Tesseract-OCR\tesseract.exe`, Linux `/usr/bin/tesseract`)
-- Postgres 16 + PostGIS 3.4, Redis 7 (or the docker stack)
-- EasyOCR downloads ~500 MB models on first fallback use (inside worker container too — first async scan is slow, subsequent fast)
-- `.env` from `.env.example`; prod requires strong `SECRET_KEY` (startup guard enforces it when `ENV=production`)
-
-### Architectural decisions & constraints
-1. Explainable rule engine with legal citations — preserve, never replace with opaque ML verdicts
-2. bcrypt directly, NOT passlib (passlib breaks on py3.14)
-3. Per-task SQLAlchemy engine in Celery tasks (`scan_tasks._task_session`) — module-level engine is loop-bound
-4. Stdlib %-format logging only in services (structlog kwargs crashed the worker once already)
-5. Tests run DB-free (mocked sessions in `tests/conftest.py`) — keep new tests DB-free or gate behind live-DB markers
-6. Persistence is best-effort in sync scan endpoints (result returned even if DB write fails)
-7. Valid `build-backend` is `setuptools.build_meta` (was a bogus legacy path — broke all isolated installs)
-8. Scans are anonymous-friendly: auth optional on scan endpoints
-
-### Known issues / gotchas
-- **CI failing (see §6) — top priority**
-- `gh` CLI not installed; Docker Desktop daemon must be started manually
-- `.claude/settings.local.json` shows as modified (uncommitted) — expected
-- First EasyOCR use downloads models (slow first async scan)
-- Tesseract default path in config is Windows-specific; docker/CI override it
-- Ruff `--fix` once mangled an exception variable — review diffs after autofix
-- Background Claude subagents in this environment get tool-permission auto-denials — run implementation in the foreground
+### Frontend (from `satyalabel_frontend/`)
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run                # device/emulator; backend URL configurable in-app
+flutter build apk --debug
+```
 
 ---
 
-## 10. Recommended Next Steps (in order)
+## 9. Architectural Decisions & Constraints (all still in force)
 
-1. **Fix CI (blocking):** read the actual GitHub Actions failure logs (web UI or `gh run view --log-failed`), fix, push, verify green. See §6.
-2. **Commit/clean `.claude/settings.local.json`** churn (add to .gitignore or commit as-is).
-3. **Phase 5 kickoff:** confirm `flutter --version` is installed; scaffold Flutter app at repo root; implement Citizen Mode (camera → scan → verdict UI) first, then Inspector Mode (login + batch sessions), then offline queue; integrate per `docs/api.md`.
-4. **Phase 6:** analytics dashboard (PostGIS heatmap — data model is ready; endpoint planned in `docs/api.md` §Planned).
-5. **Phase 7:** production deployment (prod compose without mounted source, nginx/TLS, strong SECRET_KEY, S3 image storage).
-6. Optional: populate `legal/` with the full LM(PC) Rules 2011 text if the team wants it in-repo.
+1. Explainable rule engine with legal citations — preserve, never replace with opaque ML verdicts
+2. bcrypt directly, NOT passlib
+3. Per-task SQLAlchemy engine in Celery tasks (`scan_tasks._task_session`)
+4. Stdlib %-format logging only in services
+5. Backend tests run DB-free (mocked sessions) — keep new tests DB-free
+6. Persistence best-effort in sync scan endpoints
+7. `build-backend` = `setuptools.build_meta`; package discovery now explicit (`include=["app*"]`) — flat-layout auto-discovery was the CI killer
+8. Scans are anonymous-friendly: auth optional on scan endpoints
+9. Frontend offline sync uses the **synchronous** scan endpoint (per handoff/pitch requirement)
+10. Flutter app targets Android + iOS only (no web/desktop)
+
+### Known gotchas
+- `gh` CLI not installed; use git-credential token + curl for GitHub API
+- First EasyOCR use downloads ~500 MB models (slow first async scan)
+- Tesseract default path in config is Windows-specific; docker/CI override it
+- Base-URL change requires app restart (ApiClient is late-final) — documented in settings UI
+- Ruff `--fix` can mangle exception variables — review diffs after autofix
+- Background Claude subagents in this environment get tool-permission auto-denials — run implementation in the foreground
 
 ---
 

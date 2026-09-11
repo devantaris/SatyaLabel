@@ -34,20 +34,22 @@ Production plan for SatyaLabel (SIH 2026, SIH26034 — Team The Hippos).
 - Pydantic auth schemas, modern ruff config, lint clean
 - `.env.example` maintained
 
-## Phase 5 — Frontend (next)
+## Phase 5 — Frontend ✅ (2026-09-11)
 
-- Mobile-first PWA: camera capture, verdict display, PDF download
+- `satyalabel_frontend/` Flutter app (Android + iOS): camera capture, verdict display, PDF download
 - **Inspector Mode:** raid sessions (batch scans under one session_id), history
 - Offline scan queue with background sync (matches the pitch's offline promise)
-- Login/role-aware UI
+- Login/role-aware UI; 29 tests; debug APK builds
 
-## Phase 6 — Analytics Dashboard
+## Phase 6 — Analytics Dashboard ✅ (2026-09-11)
 
-- PostGIS violation heat-map (data model already geo-indexed)
-- Repeat-offender manufacturer aggregation
-- District-level stats, CSV/PDF export for legal action
+- `GET /api/v1/analytics/heatmap` — PostGIS `ST_SnapToGrid` violation heatmap (inspector-only)
+- `GET /api/v1/analytics/manufacturers` — repeat-offender manufacturer aggregation (JSONB)
+- `GET /api/v1/analytics/overview` + `/districts` — headline + district-level stats
+- `GET /api/v1/analytics/export` — CSV export for legal action
+- Flutter Analytics dashboard (inspector-only): overview cards, hotspots, offenders, CSV share
 
-## Phase 7 — Production Deployment
+## Phase 7 — Production Deployment (next)
 
 - Production compose: gunicorn+uvicorn workers, no volume-mounted source
 - nginx reverse proxy + TLS; secrets management (strong SECRET_KEY mandatory)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import 'analytics/analytics_screen.dart';
 import 'auth/login_screen.dart';
 import 'batch/batch_sessions_screen.dart';
 import 'history/history_screen.dart';
@@ -92,7 +93,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(builder: (_) => const CameraScreen()),
               ),
             ),
-            if (app.isInspector)
+            if (app.isInspector) ...[
+              _ActionCard(
+                icon: Icons.insights,
+                color: scheme.error,
+                title: 'Analytics Dashboard',
+                subtitle: 'Violation hotspots, repeat-offender manufacturers, '
+                    'district stats, CSV evidence export.',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                ),
+              ),
               _ActionCard(
                 icon: Icons.inventory,
                 color: scheme.tertiary,
@@ -104,6 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(builder: (_) => const BatchSessionsScreen()),
                 ),
               ),
+            ],
             _ActionCard(
               icon: Icons.history,
               color: scheme.secondary,

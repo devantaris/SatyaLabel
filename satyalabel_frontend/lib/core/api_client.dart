@@ -250,4 +250,77 @@ class ApiClient {
     }
     _throwError(response);
   }
+
+  // ---------------------------------------------------------- analytics
+
+  Future<Map<String, dynamic>> analyticsOverview({int? days}) async =>
+      _getJsonMap('/api/v1/analytics/overview', days);
+
+  Future<Map<String, dynamic>> analyticsHeatmap({
+    double gridSize = 0.05,
+    int minScans = 1,
+    int? days,
+  }) async {
+    final data = await _getJsonMap(
+      '/api/v1/analytics/heatmap',
+      days,
+      extra: {
+        'grid_size': gridSize.toString(),
+        'min_scans': minScans.toString(),
+      },
+    );
+    return {
+      'points': data['points'],
+      'grid_size': data['grid_size'],
+      'count': data['count'],
+    };
+  }
+
+  Future<Map<String, dynamic>> analyticsManufacturers({
+    int minScans = 2,
+    int? days,
+  }) async =>
+      _getJsonMap('/api/v1/analytics/manufacturers', days, extra: {
+        'min_scans': minScans.toString(),
+      });
+
+  Future<Map<String, dynamic>> analyticsDistricts({int? days}) async =>
+      _getJsonMap('/api/v1/analytics/districts', days);
+
+  /// CSV evidence export (inspector/admin only) as text.
+  Future<String> analyticsExportCsv({int? days}) async {
+    final response = await _client.get(
+      _uri('/api/v1/analytics/export', _queryParams(days)),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return utf8.decode(response.bodyBytes);
+    }
+    _throwError(response);
+  }
+
+  Future<Map<String, dynamic>> _getJsonMap(
+    String path,
+    int? days, {
+    Map<String, String> extra = const {},
+  }) async {
+    http.Response response;
+    try {
+      response = await _client.get(
+        _uri(path, {..._queryParams(days), ...extra}),
+        headers: _headers,
+      );
+    } on SocketException catch (e) {
+      throw NetworkException('Cannot reach server: $e');
+    }
+    if (response.statusCode == 200) {
+      return jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+    }
+    _throwError(response);
+  }
+
+  Map<String, String> _queryParams(int? days) => {
+        if (days != null) 'days': days.toString(),
+      };
 }

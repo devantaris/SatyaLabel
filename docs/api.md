@@ -181,6 +181,52 @@ Returns the authenticated user's profile. **401** missing/invalid token.
 
 ---
 
+## Analytics (inspector/admin Bearer token required)
+
+### `GET /api/v1/analytics/overview`
+
+Query: `days` (optional lookback window). Dashboard headline numbers:
+
+```json
+{"total_scans": 42, "non_compliant": 10, "needs_verification": 5, "compliant": 27,
+ "needs_review": 3, "sessions": 4, "scans_24h": 12}
+```
+
+### `GET /api/v1/analytics/heatmap` — Violation heatmap (PostGIS)
+
+Query: `grid_size` (degrees, default 0.05 ≈ 5 km), `min_scans` (default 1), `days`, `limit` (≤2000).
+Geo-tagged completed scans binned to a lat/lon grid, worst cells first:
+
+```json
+{"points": [{"latitude": 28.6, "longitude": 77.2, "total_scans": 8,
+             "violations": 6, "needs_verification": 1, "violation_rate": 0.75}],
+ "grid_size": 0.05, "count": 1}
+```
+
+### `GET /api/v1/analytics/manufacturers` — Repeat offenders
+
+Query: `min_scans` (default 2), `days`, `limit`. Manufacturers ranked by non-compliant scan count:
+
+```json
+{"items": [{"manufacturer": "…", "total_scans": 5, "non_compliant": 3,
+            "needs_verification": 1, "compliant": 1, "last_seen": "…"}], "count": 1}
+```
+
+### `GET /api/v1/analytics/districts` — District stats
+
+Query: `days`. Scans grouped by the recording user's district: `district`, `total_scans`,
+`non_compliant`, `needs_verification`, `contributors`.
+
+### `GET /api/v1/analytics/export` — CSV evidence export
+
+Query: `days`, `limit`. Returns `text/csv` attachment (`satyalabel_evidence_YYYYMMDD.csv`)
+with one row per completed scan: scan_id, created_at, verdict, violation_count, session_id,
+needs_review, manufacturer, mrp, net_quantity, country_of_origin, latitude, longitude, district.
+
+All analytics endpoints return **401** without a valid token and **400** for `days < 1`.
+
+---
+
 ## Static Files
 
 `GET /uploads/{filename}` — scan evidence images.
@@ -189,6 +235,5 @@ Returns the authenticated user's profile. **401** missing/invalid token.
 
 ## Planned (not yet implemented)
 
-- `GET /api/v1/analytics/heatmap` — PostGIS violation heatmap
 - `GET /api/v1/scans/session/{id}` — grouped raid-session reports
 - Refresh tokens, rate limiting, API keys

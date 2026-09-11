@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"dependency_overrides\" tests/*.py)",
+      "Bash(python:*)",
+      "Bash(grep -rn \"make_user\" tests/*.py)",
+      "Bash(curl -s -o /dev/null -w \"anonymous overview: %{http_code}\\\\n\" http://localhost:8000/api/v1/analytics/overview)",
+      "Bash(curl -s http://localhost:8000/openapi.json)",
+      "Bash(docker compose:*)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"inspector@satyalabel.test\",\"password\":\"inspect-2026\"}')",
+      "Read(//c/Users/Devansh/Desktop/Projects/SatyaLabel/satyalabel_frontend/**)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter test:*)"
+    ]
+  }
+}

@@ -24,7 +24,9 @@
       "Bash(sed:*)",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl -s \"https://api.github.com/repos/devantaris/SatyaLabel/actions/runs?per_page=3\")",
+      "Bash(git commit:*)"
     ]
   }
 }

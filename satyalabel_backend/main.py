@@ -52,12 +52,15 @@ app.add_middleware(
 
 app.include_router(api_v1_router, prefix="/api/v1")
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount(
-    "/uploads",
-    StaticFiles(directory=UPLOAD_DIR),
-    name="uploads",
-)
+# Images are served directly by FastAPI only for the local-storage backend;
+# S3 storage serves them from the bucket (public base or presigned URLs).
+if settings.STORAGE_BACKEND == "local":
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    app.mount(
+        "/uploads",
+        StaticFiles(directory=UPLOAD_DIR),
+        name="uploads",
+    )
 
 
 @app.get("/health", tags=["Health"])

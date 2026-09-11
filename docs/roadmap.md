@@ -49,11 +49,16 @@ Production plan for SatyaLabel (SIH 2026, SIH26034 — Team The Hippos).
 - `GET /api/v1/analytics/export` — CSV export for legal action
 - Flutter Analytics dashboard (inspector-only): overview cards, hotspots, offenders, CSV share
 
-## Phase 7 — Production Deployment (next)
+## Phase 7 — Production Deployment ✅ (2026-09-11, local build verified)
 
-- Production compose: gunicorn+uvicorn workers, no volume-mounted source
-- nginx reverse proxy + TLS; secrets management (strong SECRET_KEY mandatory)
-- S3-compatible image storage; monitoring + structured logs (structlog is already a dependency)
+- `Dockerfile.prod` — non-root user, non-editable install, no dev tools, 2 uvicorn workers
+- `docker-compose.prod.yml` — no source mounts, auto `alembic upgrade head` on start,
+  restart policies, healthchecks, nginx edge proxy
+- `deploy/nginx.conf` — reverse proxy (12 MB upload limit, gzip) + commented TLS/certbot blocks
+- Optional S3-compatible image storage (`app/services/storage.py`, `pip install ".[s3]"`)
+  with local-disk default, public-base or presigned URLs
+- `docs/deployment.md` — full runbook: secrets, TLS, first-admin seeding, backups, checklist
+- Remaining for a real deployment: a server + domain + DNS (credentials not in this repo)
 
 ## Deferred / optional
 

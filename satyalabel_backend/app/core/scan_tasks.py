@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -21,6 +20,7 @@ from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.services.scan_pipeline import run_scan_pipeline
 from app.services.scan_repository import complete_scan, fail_scan, mark_scan_processing
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,7 @@ async def _task_session():
 
 def _run_pipeline_and_persist(scan_id: str, image_path: str) -> dict:
     """Run pipeline and persist results in one loop, one session."""
-    with open(os.path.join(settings.UPLOAD_DIR, image_path), "rb") as f:
-        image_bytes = f.read()
+    image_bytes = get_storage().read(image_path)
 
     result = run_scan_pipeline(image_bytes, scan_id=scan_id)
     report = result.compliance_report

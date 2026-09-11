@@ -9,7 +9,6 @@ GET  /api/v1/scans/          — List scans (paginated, filterable)
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from datetime import datetime
 
@@ -30,6 +29,7 @@ from app.services.scan_repository import (
     save_scan,
     scan_to_dict,
 )
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +68,9 @@ def _validate_image(image: UploadFile, image_bytes: bytes) -> None:
 
 
 def _save_image_file(scan_id: str, image_bytes: bytes, content_type: str) -> str:
-    """Store the uploaded image under UPLOAD_DIR/{scan_id}{ext}. Returns filename."""
-    upload_dir = settings.UPLOAD_DIR
-    os.makedirs(upload_dir, exist_ok=True)
+    """Store the uploaded image via the configured backend. Returns the stored path."""
     ext = MIME_EXTENSIONS.get(content_type, ".jpg")
-    filename = f"{scan_id}{ext}"
-    path = os.path.join(upload_dir, filename)
-    with open(path, "wb") as f:
-        f.write(image_bytes)
-    return filename
+    return get_storage().save(image_bytes, f"{scan_id}{ext}")
 
 
 async def _persist_scan(

@@ -10,7 +10,21 @@
       "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"inspector@satyalabel.test\",\"password\":\"inspect-2026\"}')",
       "Read(//c/Users/Devansh/Desktop/Projects/SatyaLabel/satyalabel_frontend/**)",
       "Bash(flutter analyze:*)",
-      "Bash(flutter test:*)"
+      "Bash(flutter test:*)",
+      "Bash(docker build:*)",
+      "Bash(echo \"exit=$?\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/scans/ -F \"image=@test_images/$\\(ls test_images/)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/scans/ -F \"image=@uploads/00c0105a-1c16-4434-8b2b-0832c5db4b66.jpg\" -F \"latitude=28.61\" -F \"longitude=77.21\")",
+      "Bash(curl -s http://localhost:8000/api/v1/scans/43fffdcf-574a-40db-8015-9c16025327c2)",
+      "Bash(docker run:*)",
+      "Bash(curl -s http://localhost:8099/health)",
+      "Bash(curl -s -o /dev/null -w \"openapi: %{http_code}\\\\n\" http://localhost:8099/docs)",
+      "Bash(docker rm:*)",
+      "Bash(sed:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }

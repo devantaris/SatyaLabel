@@ -1,0 +1,35 @@
+# SatyaLabel production image — non-root, non-editable install, no dev tools.
+FROM python:3.11-slim
+
+# System dependencies: Tesseract OCR + OpenCV prerequisites + PostGIS client libs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libgl1 \
+    libglib2.0-0 \
+    libpq-dev \
+    gdal-bin \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy source first (prod installs non-editable), install runtime deps only.
+# Add ".[s3]" to the pip line if S3 image storage is used.
+COPY pyproject.toml README.md ./
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini main.py ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
+
+# Unprivileged runtime user; uploads dir is writable via the shared volume.
+RUN useradd --create-home --uid 10001 satya \
+    && mkdir -p /app/uploads \
+    && chown -R satya:satya /app
+USER satya
+
+EXPOSE 8000
+
+# Workers > 1: the app is stateless (DB/Redis/S3 hold all state).
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

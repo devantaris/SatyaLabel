@@ -2,7 +2,7 @@
 
 > **Persistent session-to-session handoff.** Documents the CURRENT state only.
 > Do not redesign or refactor based on this file. Read fully before continuing development.
-> Last updated: 2026-09-11 (session 2) · Phase 5 commit: `4a52044` (main, pushed to origin, CI green)
+> Last updated: 2026-09-11 (session 3) · Phases 0–7 COMPLETE (see §2)
 
 ---
 
@@ -52,7 +52,9 @@ SatyaLabel/
 | 4 — Hardening/Docs | `4d10be1` | README, docs/, prod SECRET_KEY guard, `pydantic[email]` |
 | Fixes | `1f6134f`, `23bbf1b` | LICENSE; Docker build fix + 2 live E2E bug fixes |
 | CI fix | `7ac4d7e` | **Fixed the CI that had been red since commit 1**: setuptools flat-layout auto-discovery refused to build (`['app','alembic']` multiple top-level packages) — added `[tool.setuptools.packages.find] include=["app*"]` to pyproject.toml |
-| 5 — Flutter | `4a52044` | **Full frontend** — see §5 |
+| 5 — Flutter | `4a52044` | **Full frontend** — see §4 |
+| 6 — Analytics | `d57f2ee` | `GET /api/v1/analytics/{overview,heatmap,manufacturers,districts,export}` (inspector-only, PostGIS ST_SnapToGrid + JSONB aggregations, CSV export); Flutter inspector Analytics dashboard; live-verified |
+| 7 — Production | (this session) | `Dockerfile.prod` (non-root, non-editable), `docker-compose.prod.yml` (no source mounts, auto-migrations, healthchecks, nginx), `deploy/nginx.conf` (TLS-ready), S3-compatible storage abstraction (`pip install ".[s3]"`), `docs/deployment.md` runbook |
 
 > **History note (2026-09-11 session 2):** git history was rewritten with `git filter-branch --msg-filter` to remove all `Co-Authored-By: Claude` trailers (8 commits). Trees were verified byte-identical before force-push (`--force-with-lease`). Backup branch: `backup/pre-attribution-rewrite` (local only). `~/.claude/settings.json` now has `includeCoAuthoredBy: false` + `"attribution": {"commit": "", "pr": ""}` — future commits/PRs carry no attribution.
 
@@ -137,20 +139,23 @@ satyalabel_frontend/lib/
 
 | Check | Status |
 |---|---|
-| GitHub Actions CI | ✅ **GREEN** (both `7ac4d7e` and `4a52044` runs — was red on every run since commit 1) |
-| Local backend tests | ✅ 102 passing (`python -m pytest tests/ -q`) |
+| GitHub Actions CI | ✅ green (backend: ruff + pytest on py3.12/ubuntu — every push since `7ac4d7e`) |
+| Local backend tests | ✅ 118 passing (`python -m pytest tests/ -q`) — includes 8 analytics + 8 storage tests |
 | Ruff | ✅ clean (`python -m ruff check app tests alembic`) |
-| Flutter analyze | ✅ no issues |
-| Flutter tests | ✅ 29 passing |
-| Android debug APK build | ✅ `flutter build apk --debug` (this session) |
-| Docker build | ✅ `docker compose build` (this session) |
+| Flutter analyze / tests | ✅ no issues / 35 passing |
+| Android debug APK build | ✅ `flutter build apk --debug` |
+| Dev Docker build + live stack | ✅ running; live-verified: sync scan, async scan (worker storage.read path), analytics endpoints, CSV export, PostGIS heatmap |
+| Prod Docker image | ✅ `Dockerfile.prod` builds; smoke-tested standalone (`/health` 200, 2 uvicorn workers) |
 | Claude attribution | ✅ none in remote history; future commits configured without attribution |
 
-### Not yet verified on real hardware
-- Camera + GPS on a physical device/emulator (no device was connected this session — build only)
-- End-to-end app↔backend flow over a LAN (stack verified via curl-level E2E in session 1)
+### Analytics (Phase 6) — implemented
+- Backend: `app/services/analytics_repository.py` (raw SQL: `ST_SnapToGrid` heatmap, JSONB manufacturer aggregation, district join, overview counters, export rows) + `app/api/v1/analytics.py` (inspector-only routes incl. CSV). Query params: `days`, `grid_size`, `min_scans`, `limit`.
+- Flutter: `lib/ui/analytics/analytics_screen.dart` — inspector-only dashboard (overview cards, hotspots, repeat offenders, districts, 7d/30d/all window chips, CSV share) + ApiClient analytics methods.
+- A live test inspector exists in the dev DB: `inspector@gov.in` / `inspect-2026` (seeded via SQL for E2E — remove or keep for demo).
 
----
+### Storage abstraction (Phase 7)
+- `app/services/storage.py` — `LocalStorage` (default, UPLOAD_DIR + `/uploads` mount) and `S3Storage` (boto3 via `pip install ".[s3]"`; `S3_PUBLIC_URL_BASE` or presigned URLs). Wired into scans API, Celery worker, and `scan_to_dict`. `main.py` mounts `/uploads` only for the local backend.
+- Production files: `Dockerfile.prod`, `docker-compose.prod.yml` (**must run with `--env-file .env.prod`** — compose interpolation does not read env_file), `deploy/nginx.conf` (TLS-ready, commented HTTPS block), `.env.prod.example`, `docs/deployment.md` runbook.
 
 ## 6. Git / GitHub State
 
@@ -164,13 +169,11 @@ satyalabel_frontend/lib/
 
 ## 7. Remaining Work
 
-1. **Phase 6 — Analytics dashboard** (`GET /api/v1/analytics/heatmap` PostGIS violation heatmap; endpoint spec'd in docs/api.md §Planned)
-2. **Phase 7 — Production deployment** (prod compose without mounted source, nginx/TLS, strong SECRET_KEY, S3 image storage, remove `usesCleartextTraffic`)
-3. **Device-level E2E**: run the app on an emulator/phone against the dockerized backend (`10.0.2.2:8000`), exercise camera → verdict → PDF, inspector login + batch session, airplane-mode offline queue → auto-sync
-4. Optional: Flutter CI job in ci.yml (flutter analyze + test) — currently CI covers backend only
-5. Optional: populate `legal/` with the full LM(PC) Rules 2011 text
+All roadmap phases (0–7) are complete. What's left needs resources outside this repo:
 
----
+1. **Actual deployment** — rent a server + domain, follow `docs/deployment.md` (secrets, TLS via certbot, first-admin seeding). Everything is prepared; nothing code-side remains.
+2. **Device-level E2E of the Flutter app** — run on an emulator/phone against the backend (`10.0.2.2:8000`): camera → verdict → PDF, inspector login (`inspector@gov.in` / `inspect-2026` on the dev stack) + batch session + analytics, airplane-mode offline queue → auto-sync.
+3. Optional polish: Flutter CI job in ci.yml (analyze + test); populate `legal/` with the LM(PC) Rules 2011 text; Hindi OCR (deferred roadmap item).
 
 ## 8. Commands
 

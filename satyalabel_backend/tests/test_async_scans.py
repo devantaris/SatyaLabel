@@ -173,10 +173,11 @@ def test_process_scan_task_persists_results(monkeypatch, tmp_path):
                 return False
         return Ctx()
 
-    with patch("app.core.scan_tasks.settings") as mock_settings, \
-         patch("app.core.scan_tasks.complete_scan", new=fake_complete), \
+    # Point the storage backend (reads app.core.config.settings) at tmp_path
+    monkeypatch.setattr("app.core.config.settings.UPLOAD_DIR", str(tmp_path))
+
+    with patch("app.core.scan_tasks.complete_scan", new=fake_complete), \
          patch("app.core.scan_tasks._task_session", new=fake_task_session):
-        mock_settings.UPLOAD_DIR = str(tmp_path)
         result = _run_pipeline_and_persist(str(uuid.uuid4()), "img.jpg")
 
     assert result["verdict"] is not None

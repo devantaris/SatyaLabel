@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # ── File Storage ───────────────────────────────────────────────────────────
     UPLOAD_DIR: str = "uploads"
     MAX_IMAGE_SIZE_MB: int = 10
+    STORAGE_BACKEND: str = "local"  # local | s3
+    S3_BUCKET: str | None = None
+    S3_ENDPOINT_URL: str | None = None  # e.g. http://minio:9000 (MinIO/compatible)
+    S3_PUBLIC_URL_BASE: str | None = None  # public/CDN base; presigned URLs if unset
+    S3_PRESIGN_EXPIRE_SECONDS: int = 3600
 
     # ── JWT Auth ───────────────────────────────────────────────────────────────
     JWT_ALGORITHM: str = "HS256"

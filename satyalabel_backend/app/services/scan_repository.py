@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scan import ScanRecord
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,9 @@ def scan_to_dict(record: ScanRecord) -> dict:
         "session_id": record.session_id,
         "needs_review": record.needs_review,
         "report_generated": record.report_generated,
-        "image_url": f"/uploads/{record.image_path.rsplit('/', 1)[-1]}" if record.image_path else None,
+        "image_url": (
+            get_storage().url_for(record.image_path) if record.image_path else None
+        ),
         "created_at": record.created_at.isoformat() if record.created_at else None,
     }
 

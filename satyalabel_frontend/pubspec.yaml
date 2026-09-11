@@ -1,0 +1,44 @@
+name: satyalabel_frontend
+description: "SatyaLabel — Legal Metrology label compliance scanner (SIH 2026, SIH26034). Camera scanning, verdicts with rule citations, inspector batch raids, offline queue."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # API + state
+  http: ^1.2.0
+  http_parser: ^4.0.2
+  provider: ^6.1.0
+
+  # Camera scanning
+  camera: ^0.11.0
+
+  # Local persistence (auth session, offline queue, scan history)
+  shared_preferences: ^2.3.0
+  path_provider: ^2.1.0
+
+  # Offline detection + auto-sync
+  connectivity_plus: ^6.0.0
+
+  # GPS location for scan evidence
+  geolocator: ^13.0.0
+
+  # PDF report download + share
+  share_plus: ^10.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

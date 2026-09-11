@@ -21,6 +21,7 @@ def _make_scan_record(**overrides) -> MagicMock:
     """Build a mock ScanRecord with realistic field values."""
     record = MagicMock()
     record.id = uuid.UUID(overrides.get("id", str(uuid.uuid4())))
+    record.status = overrides.get("status", "COMPLETED")
     record.verdict = overrides.get("verdict", "NON_COMPLIANT")
     record.violation_count = overrides.get("violation_count", 2)
     record.ocr_engine = overrides.get("ocr_engine", "tesseract")

@@ -50,8 +50,13 @@ class ScanRecord(Base):
     # Image storage
     image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    # Results
-    verdict: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    # Processing status: PENDING | PROCESSING | COMPLETED | FAILED
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="COMPLETED", index=True
+    )
+
+    # Results (verdict is NULL until the async pipeline completes)
+    verdict: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     violation_count: Mapped[int] = mapped_column(Integer, default=0)
     ocr_engine: Mapped[str | None] = mapped_column(String(32))
     ocr_confidence: Mapped[float | None] = mapped_column(Float)

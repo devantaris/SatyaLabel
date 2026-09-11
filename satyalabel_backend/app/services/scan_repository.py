@@ -47,6 +47,7 @@ async def save_scan(
     address_hint: str | None = None,
     needs_review: bool = False,
     report_generated: bool = False,
+    status: str = "COMPLETED",
 ) -> ScanRecord:
     """Persist a completed scan. Caller manages commit via get_db."""
     record = ScanRecord(
@@ -64,6 +65,7 @@ async def save_scan(
         address_hint=address_hint,
         needs_review=needs_review,
         report_generated=report_generated,
+        status=status,
     )
     if latitude is not None and longitude is not None:
         record.location = build_location_column(latitude, longitude)
@@ -133,7 +135,7 @@ def scan_to_dict(record: ScanRecord) -> dict:
     """Serialize a ScanRecord to an API-friendly dict."""
     return {
         "scan_id": str(record.id),
-        "status": "COMPLETED",
+        "status": record.status,
         "verdict": record.verdict,
         "violation_count": record.violation_count,
         "ocr_engine": record.ocr_engine,
@@ -147,3 +149,70 @@ def scan_to_dict(record: ScanRecord) -> dict:
         "image_url": f"/uploads/{record.image_path.rsplit('/', 1)[-1]}" if record.image_path else None,
         "created_at": record.created_at.isoformat() if record.created_at else None,
     }
+
+
+async def create_pending_scan(
+    session: AsyncSession,
+    *,
+    scan_id: str,
+    image_path: str,
+    session_id: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> ScanRecord:
+    """Create a PENDING scan record for async processing."""
+    record = ScanRecord(
+        id=uuid.UUID(scan_id),
+        verdict=None,
+        image_path=image_path,
+        session_id=session_id,
+        status="PENDING",
+    )
+    if latitude is not None and longitude is not None:
+        record.location = build_location_column(latitude, longitude)
+    session.add(record)
+    await session.flush()
+    return record
+
+
+async def mark_scan_processing(session: AsyncSession, scan_id: str) -> None:
+    record = await get_scan(session, scan_id)
+    if record is not None:
+        record.status = "PROCESSING"
+
+
+async def complete_scan(
+    session: AsyncSession,
+    scan_id: str,
+    *,
+    verdict: str,
+    violation_count: int,
+    ocr_engine: str | None,
+    ocr_confidence: float | None,
+    extracted_fields: dict | None,
+    compliance_data: dict | None,
+    preprocess_diagnostics: dict | None,
+    needs_review: bool = False,
+) -> None:
+    """Fill in results on an existing (PENDING/PROCESSING) scan record."""
+    record = await get_scan(session, scan_id)
+    if record is None:
+        raise ValueError(f"Scan {scan_id} not found")
+    record.verdict = verdict
+    record.violation_count = violation_count
+    record.ocr_engine = ocr_engine
+    record.ocr_confidence = ocr_confidence
+    record.extracted_fields = extracted_fields
+    record.compliance_data = compliance_data
+    record.preprocess_diagnostics = preprocess_diagnostics
+    record.needs_review = needs_review
+    record.status = "COMPLETED"
+
+
+async def fail_scan(session: AsyncSession, scan_id: str, error: str) -> None:
+    """Mark a scan FAILED with the error message in compliance_data."""
+    record = await get_scan(session, scan_id)
+    if record is None:
+        return
+    record.status = "FAILED"
+    record.compliance_data = {"error": error[:1000]}

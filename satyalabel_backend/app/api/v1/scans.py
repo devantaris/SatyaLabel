@@ -21,7 +21,14 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.services.report_generator import generate_inspection_pdf
 from app.services.scan_pipeline import run_scan_pipeline
-from app.services.scan_repository import get_scan, list_scans, save_scan, scan_to_dict
+from app.services.scan_repository import (
+    complete_scan,
+    create_pending_scan,
+    get_scan,
+    list_scans,
+    save_scan,
+    scan_to_dict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +176,97 @@ async def create_scan(
         response["session_id"] = session_id
 
     return JSONResponse(content=response)
+
+
+@router.post(
+    "/async",
+    summary="Submit label image for async processing (202 + polling)",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_scan_async(
+    image: UploadFile = File(..., description="Product label photo (JPEG/PNG/WebP)"),
+    latitude: float | None = Form(None, description="GPS latitude of scan location"),
+    longitude: float | None = Form(None, description="GPS longitude of scan location"),
+    session_id: str | None = Form(None, description="Inspector batch session ID"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Submit a scan for background processing by the Celery worker.
+
+    Returns immediately with scan_id + status PENDING. Poll
+    GET /scans/{scan_id} until status is COMPLETED or FAILED.
+    Falls back to synchronous processing if the task queue is unavailable.
+    """
+    _validate_image(image, image_bytes := await image.read())
+
+    scan_id = str(uuid.uuid4())
+    filename = _save_image_file(scan_id, image_bytes, image.content_type)
+
+    # Create PENDING record so the client can poll immediately
+    try:
+        record = await create_pending_scan(
+            db,
+            scan_id=scan_id,
+            image_path=filename,
+            session_id=session_id,
+            latitude=latitude,
+            longitude=longitude,
+        )
+        created_at = record.created_at.isoformat() if record.created_at else None
+    except Exception:
+        logger.exception("Failed to create pending scan record")
+        created_at = None
+
+    # Dispatch to Celery; fall back to sync if broker unavailable
+    try:
+        from app.core.scan_tasks import process_scan_task
+
+        process_scan_task.delay(scan_id, filename)
+        dispatched = True
+    except Exception:
+        logger.exception("Celery dispatch failed — falling back to synchronous scan")
+        dispatched = False
+
+    if not dispatched:
+        # Synchronous fallback: run inline (blocks this request)
+        try:
+            result = run_scan_pipeline(image_bytes, scan_id=scan_id)
+        except Exception:
+            logger.exception("Fallback sync scan failed")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal scan error. Please try again.",
+            )
+        response = result.to_api_response()
+        response["status"] = "COMPLETED"
+        try:
+            report = result.compliance_report
+            await complete_scan(
+                db,
+                scan_id,
+                verdict=report.verdict.value,
+                violation_count=report.violation_count,
+                ocr_engine=result.ocr_result.engine_used,
+                ocr_confidence=round(result.ocr_result.mean_confidence, 3),
+                extracted_fields=result.extracted_fields.as_dict(),
+                compliance_data=report.as_dict(),
+                preprocess_diagnostics={},
+                needs_review=report.needs_manual_review,
+            )
+        except Exception:
+            logger.exception("Fallback persistence failed")
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=response)
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "scan_id": scan_id,
+            "status": "PENDING",
+            "message": "Scan accepted for processing. Poll GET /api/v1/scans/{scan_id}.",
+            "session_id": session_id,
+            "created_at": created_at,
+        },
+    )
 
 
 @router.post(

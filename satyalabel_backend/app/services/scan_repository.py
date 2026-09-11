@@ -159,6 +159,7 @@ async def create_pending_scan(
     session_id: str | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> ScanRecord:
     """Create a PENDING scan record for async processing."""
     record = ScanRecord(
@@ -166,6 +167,7 @@ async def create_pending_scan(
         verdict=None,
         image_path=image_path,
         session_id=session_id,
+        user_id=user_id,
         status="PENDING",
     )
     if latitude is not None and longitude is not None:

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.security import get_optional_user
 from app.services.report_generator import generate_inspection_pdf
 from app.services.scan_pipeline import run_scan_pipeline
 from app.services.scan_repository import (
@@ -88,6 +89,7 @@ async def _persist_scan(
     longitude: float | None,
     session_id: str | None,
     report_generated: bool,
+    user_id=None,
 ) -> dict:
     """Save image + ScanRecord, return the persisted scan dict."""
     filename = _save_image_file(scan_id, image_bytes, content_type)
@@ -110,6 +112,7 @@ async def _persist_scan(
         },
         image_path=filename,
         session_id=session_id,
+        user_id=user_id,
         latitude=latitude,
         longitude=longitude,
         needs_review=report.needs_manual_review,
@@ -129,12 +132,14 @@ async def create_scan(
     longitude: float | None = Form(None, description="GPS longitude of scan location"),
     session_id: str | None = Form(None, description="Inspector batch session ID"),
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_optional_user),
 ):
     """
     Run the full compliance scan pipeline on an uploaded product label image.
 
     Returns the compliance verdict, extracted fields, violations, and diagnostics.
     The result is persisted and retrievable via GET /scans/{scan_id}.
+    If a valid Bearer token is supplied, the scan is bound to that user.
     """
     _validate_image(image, image_bytes := await image.read())
 
@@ -161,6 +166,7 @@ async def create_scan(
         record_dict = await _persist_scan(
             db, scan_id, result, image_bytes, image.content_type,
             latitude, longitude, session_id, report_generated=False,
+            user_id=user.id if user else None,
         )
         response["status"] = "COMPLETED"
         response["created_at"] = record_dict["created_at"]
@@ -189,6 +195,7 @@ async def create_scan_async(
     longitude: float | None = Form(None, description="GPS longitude of scan location"),
     session_id: str | None = Form(None, description="Inspector batch session ID"),
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_optional_user),
 ):
     """
     Submit a scan for background processing by the Celery worker.
@@ -211,6 +218,7 @@ async def create_scan_async(
             session_id=session_id,
             latitude=latitude,
             longitude=longitude,
+            user_id=user.id if user else None,
         )
         created_at = record.created_at.isoformat() if record.created_at else None
     except Exception:

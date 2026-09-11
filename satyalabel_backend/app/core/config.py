@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # 8 hours (inspector shift)
 
+    # First-admin bootstrap (used once to seed the initial admin account)
+    BOOTSTRAP_ADMIN_EMAIL: str | None = None
+    BOOTSTRAP_ADMIN_PASSWORD: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

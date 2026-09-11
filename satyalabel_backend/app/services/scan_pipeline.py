@@ -66,31 +66,29 @@ class ScanPipeline:
         if scan_id is None:
             scan_id = str(uuid.uuid4())
 
-        logger.info("Starting scan pipeline", scan_id=scan_id, image_size=len(image_bytes))
+        logger.info("Starting scan pipeline scan_id=%s image_size=%d", scan_id, len(image_bytes))
 
         # Step 1: Pre-process
         prep = preprocess_image(image_bytes)
-        logger.debug("Pre-processing done", scan_id=scan_id, skew=prep.skew_angle)
+        logger.debug("Pre-processing done scan_id=%s skew=%.2f", scan_id, prep.skew_angle)
 
         # Step 2: OCR
         ocr_svc = get_ocr_service()
         ocr_result = ocr_svc.run(prep)
         logger.debug(
-            "OCR done", scan_id=scan_id,
-            engine=ocr_result.engine_used, conf=ocr_result.mean_confidence,
+            "OCR done scan_id=%s engine=%s conf=%.3f",
+            scan_id, ocr_result.engine_used, ocr_result.mean_confidence,
         )
 
         # Step 3: Field extraction
         fields = extract_fields(ocr_result)
-        logger.debug("Fields extracted", scan_id=scan_id)
+        logger.debug("Fields extracted scan_id=%s", scan_id)
 
         # Step 4: Compliance check
         report = check_compliance(fields, ocr_needs_review=ocr_result.needs_manual_review)
         logger.info(
-            "Scan complete",
-            scan_id=scan_id,
-            verdict=report.verdict.value,
-            violations=report.violation_count,
+            "Scan complete scan_id=%s verdict=%s violations=%d",
+            scan_id, report.verdict.value, report.violation_count,
         )
 
         return ScanPipelineResult(

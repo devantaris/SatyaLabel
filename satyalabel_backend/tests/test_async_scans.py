@@ -164,7 +164,7 @@ def test_process_scan_task_persists_results(monkeypatch, tmp_path):
         captured.update(kwargs)
         captured["scan_id"] = scan_id
 
-    async def fake_session_ctx():
+    async def fake_task_session():
         class Ctx:
             async def __aenter__(self):
                 return MagicMock()
@@ -175,22 +175,8 @@ def test_process_scan_task_persists_results(monkeypatch, tmp_path):
 
     with patch("app.core.scan_tasks.settings") as mock_settings, \
          patch("app.core.scan_tasks.complete_scan", new=fake_complete), \
-         patch("app.core.scan_tasks.AsyncSessionLocal") as mock_session_local:
+         patch("app.core.scan_tasks._task_session", new=fake_task_session):
         mock_settings.UPLOAD_DIR = str(tmp_path)
-        mock_session_local.return_value = MagicMock()
-        mock_session_local.side_effect = None
-        # AsyncSessionLocal() used as async context manager
-        class _Factory:
-            def __call__(self):
-                class Ctx:
-                    async def __aenter__(self):
-                        return MagicMock()
-
-                    async def __aexit__(self, *a):
-                        return False
-                return Ctx()
-        mock_session_local.side_effect = None
-        mock_session_local.__call__ = lambda *a, **k: _Factory()()
         result = _run_pipeline_and_persist(str(uuid.uuid4()), "img.jpg")
 
     assert result["verdict"] is not None

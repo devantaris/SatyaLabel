@@ -7,8 +7,7 @@ from __future__ import annotations
 import pytest
 
 from app.services.field_extractor import ExtractedField, ExtractedFields
-from app.services.rule_engine import RuleEngine, Verdict, Severity, check_compliance
-
+from app.services.rule_engine import RuleEngine, Severity, Verdict, check_compliance
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

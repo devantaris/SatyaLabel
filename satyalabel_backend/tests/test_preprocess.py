@@ -4,14 +4,11 @@ Tests for image pre-processing pipeline.
 from __future__ import annotations
 
 import io
-import os
 
-import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
 from app.services.preprocess import ImagePreprocessor, preprocess_image
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

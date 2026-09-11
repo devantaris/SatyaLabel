@@ -5,16 +5,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from geoalchemy2 import Geography
-from sqlalchemy import (
-    Boolean, DateTime, Float, ForeignKey, Integer,
-    String, Text, func
-)
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class ScanRecord(Base):
@@ -75,4 +76,4 @@ class ScanRecord(Base):
     )
 
     # Relationships
-    user: Mapped["User | None"] = relationship("User", back_populates="scans", lazy="joined")
+    user: Mapped[User | None] = relationship("User", back_populates="scans", lazy="joined")

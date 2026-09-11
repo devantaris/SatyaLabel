@@ -3,20 +3,25 @@ SatyaLabel Backend — Main FastAPI Application Entry Point
 SIH 2026 | Problem Statement SIH26034 | Team: The Hippos
 """
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_v1_router
 from app.core.config import settings
 
 logger = logging.getLogger("satyalabel")
 
+UPLOAD_DIR = settings.UPLOAD_DIR
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle events."""
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     logger.info("SatyaLabel backend starting up - version %s", settings.VERSION)
     yield
     logger.info("SatyaLabel backend shutting down")
@@ -41,6 +46,13 @@ app.add_middleware(
 )
 
 app.include_router(api_v1_router, prefix="/api/v1")
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount(
+    "/uploads",
+    StaticFiles(directory=UPLOAD_DIR),
+    name="uploads",
+)
 
 
 @app.get("/health", tags=["Health"])

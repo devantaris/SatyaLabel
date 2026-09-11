@@ -23,12 +23,11 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
-from typing import List, Literal, Optional
+from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 import pytesseract
-from PIL import Image
 
 from app.core.config import settings
 from app.services.preprocess import PreprocessResult
@@ -59,22 +58,22 @@ class OcrLine:
 class OcrResult:
     """Full OCR output for one image."""
     raw_text: str
-    lines: List[OcrLine]
+    lines: list[OcrLine]
     engine_used: Literal["tesseract", "easyocr", "combined"]
     mean_confidence: float
     needs_manual_review: bool
-    tesseract_confidence: Optional[float] = None
-    easyocr_confidence: Optional[float] = None
+    tesseract_confidence: float | None = None
+    easyocr_confidence: float | None = None
 
     @property
-    def high_confidence_lines(self) -> List[OcrLine]:
+    def high_confidence_lines(self) -> list[OcrLine]:
         """Lines with confidence above the threshold."""
-        return [l for l in self.lines if l.confidence >= settings.OCR_CONFIDENCE_THRESHOLD]
+        return [ln for ln in self.lines if ln.confidence >= settings.OCR_CONFIDENCE_THRESHOLD]
 
     @property
-    def low_confidence_lines(self) -> List[OcrLine]:
+    def low_confidence_lines(self) -> list[OcrLine]:
         """Lines flagged for manual review."""
-        return [l for l in self.lines if l.confidence < settings.OCR_FALLBACK_THRESHOLD]
+        return [ln for ln in self.lines if ln.confidence < settings.OCR_FALLBACK_THRESHOLD]
 
 
 # ── OCR Service ───────────────────────────────────────────────────────────────
@@ -179,7 +178,7 @@ class OcrService:
             output_type=pytesseract.Output.DICT,
         )
 
-        lines: List[OcrLine] = []
+        lines: list[OcrLine] = []
         line_buffer: dict[int, dict] = {}  # key: line_num
 
         for i in range(len(data["text"])):
@@ -216,8 +215,8 @@ class OcrService:
                 engine="tesseract",
             ))
 
-        raw_text = "\n".join(l.text for l in lines)
-        mean_conf = float(np.mean([l.confidence for l in lines])) if lines else 0.0
+        raw_text = "\n".join(ln.text for ln in lines)
+        mean_conf = float(np.mean([ln.confidence for ln in lines])) if lines else 0.0
 
         return OcrResult(
             raw_text=raw_text,
@@ -241,7 +240,7 @@ class OcrService:
             paragraph=False,   # Keep individual text blocks (easier to parse)
         )
 
-        lines: List[OcrLine] = []
+        lines: list[OcrLine] = []
         for detection in raw_detections:
             bbox_pts, text, conf = detection
             text = text.strip()
@@ -263,10 +262,10 @@ class OcrService:
             ))
 
         # Sort lines top-to-bottom, then left-to-right (reading order)
-        lines.sort(key=lambda l: (l.bbox[1], l.bbox[0]))
+        lines.sort(key=lambda ln: (ln.bbox[1], ln.bbox[0]))
 
-        raw_text = "\n".join(l.text for l in lines)
-        mean_conf = float(np.mean([l.confidence for l in lines])) if lines else 0.0
+        raw_text = "\n".join(ln.text for ln in lines)
+        mean_conf = float(np.mean([ln.confidence for ln in lines])) if lines else 0.0
 
         return OcrResult(
             raw_text=raw_text,
@@ -279,7 +278,7 @@ class OcrService:
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
-_ocr_service: Optional[OcrService] = None
+_ocr_service: OcrService | None = None
 
 
 def get_ocr_service() -> OcrService:

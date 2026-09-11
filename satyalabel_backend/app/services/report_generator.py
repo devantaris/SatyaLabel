@@ -16,23 +16,23 @@ Sections in Generated Report:
 from __future__ import annotations
 
 import io
-import os
 from datetime import datetime
-from typing import Optional
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch, mm
+from reportlab.lib.units import mm
 from reportlab.platypus import (
     HRFlowable,
-    Image as RLImage,
     KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
+)
+from reportlab.platypus import (
+    Image as RLImage,
 )
 
 from app.services.rule_engine import ComplianceReport, Severity, Verdict
@@ -45,10 +45,10 @@ class ReportGenerator:
         self,
         compliance_report: ComplianceReport,
         scan_id: str,
-        image_bytes: Optional[bytes] = None,
-        inspector_badge: Optional[str] = "INSP-DL-2026-084",
-        inspector_name: Optional[str] = "Legal Metrology Inspector",
-        location_hint: Optional[str] = "Connaught Place Market, New Delhi (28.6315° N, 77.2167° E)",
+        image_bytes: bytes | None = None,
+        inspector_badge: str | None = "INSP-DL-2026-084",
+        inspector_name: str | None = "Legal Metrology Inspector",
+        location_hint: str | None = "Connaught Place Market, New Delhi (28.6315° N, 77.2167° E)",
     ) -> bytes:
         """
         Generate a PDF evidence document as raw bytes.
@@ -333,10 +333,10 @@ _report_generator = ReportGenerator()
 def generate_inspection_pdf(
     compliance_report: ComplianceReport,
     scan_id: str,
-    image_bytes: Optional[bytes] = None,
-    inspector_badge: Optional[str] = "INSP-DL-2026-084",
-    inspector_name: Optional[str] = "Legal Metrology Inspector",
-    location_hint: Optional[str] = None,
+    image_bytes: bytes | None = None,
+    inspector_badge: str | None = "INSP-DL-2026-084",
+    inspector_name: str | None = "Legal Metrology Inspector",
+    location_hint: str | None = None,
 ) -> bytes:
     """Convenience function to generate a compliance PDF report."""
     return _report_generator.generate_pdf(

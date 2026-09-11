@@ -22,13 +22,11 @@ Field priority for confidence weighting:
 """
 from __future__ import annotations
 
-import re
 import logging
-from dataclasses import dataclass, field as dc_field
-from datetime import datetime
-from typing import List, Optional
+import re
+from dataclasses import dataclass
 
-from app.services.ocr_service import OcrResult, OcrLine
+from app.services.ocr_service import OcrLine, OcrResult
 
 logger = logging.getLogger(__name__)
 
@@ -130,10 +128,10 @@ _GENERIC_NAME_PATTERNS = [
 class ExtractedField:
     """A single extracted field value from the OCR text."""
     field_name: str
-    value: Optional[str]               # Extracted value string; None if not found
+    value: str | None               # Extracted value string; None if not found
     confidence: float                  # 0.0–1.0; inherited from OCR line or 0.5 for text-search
-    raw_snippet: Optional[str] = None  # The matched text snippet for debugging
-    source_line_idx: Optional[int] = None  # Index in OcrResult.lines
+    raw_snippet: str | None = None  # The matched text snippet for debugging
+    source_line_idx: int | None = None  # Index in OcrResult.lines
 
     @property
     def is_found(self) -> bool:

@@ -2,12 +2,12 @@
 Unit tests for the PDF report generator.
 """
 import io
+
 from PIL import Image
-import pytest
 
 from app.services.field_extractor import ExtractedField, ExtractedFields
-from app.services.rule_engine import RuleEngine, Verdict
 from app.services.report_generator import generate_inspection_pdf
+from app.services.rule_engine import RuleEngine, Verdict
 
 
 def _dummy_image_bytes() -> bytes:

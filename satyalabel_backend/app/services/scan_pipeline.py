@@ -6,12 +6,11 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Optional
 
-from app.services.preprocess import preprocess_image, PreprocessResult
-from app.services.ocr_service import get_ocr_service, OcrResult
-from app.services.field_extractor import extract_fields, ExtractedFields
-from app.services.rule_engine import check_compliance, ComplianceReport
+from app.services.field_extractor import ExtractedFields, extract_fields
+from app.services.ocr_service import OcrResult, get_ocr_service
+from app.services.preprocess import PreprocessResult, preprocess_image
+from app.services.rule_engine import ComplianceReport, check_compliance
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class ScanPipeline:
       Image bytes → Pre-process → OCR → Field Extraction → Compliance Check
     """
 
-    def run(self, image_bytes: bytes, scan_id: Optional[str] = None) -> ScanPipelineResult:
+    def run(self, image_bytes: bytes, scan_id: str | None = None) -> ScanPipelineResult:
         """
         Run the full pipeline on raw image bytes.
 
@@ -106,6 +105,6 @@ class ScanPipeline:
 _pipeline = ScanPipeline()
 
 
-def run_scan_pipeline(image_bytes: bytes, scan_id: Optional[str] = None) -> ScanPipelineResult:
+def run_scan_pipeline(image_bytes: bytes, scan_id: str | None = None) -> ScanPipelineResult:
     """Module-level convenience function."""
     return _pipeline.run(image_bytes, scan_id)

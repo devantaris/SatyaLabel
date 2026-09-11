@@ -4,8 +4,9 @@ Tests for the Field Extractor — regex patterns against realistic label text.
 from __future__ import annotations
 
 import pytest
-from app.services.ocr_service import OcrResult, OcrLine
-from app.services.field_extractor import FieldExtractor, extract_fields
+
+from app.services.field_extractor import FieldExtractor
+from app.services.ocr_service import OcrLine, OcrResult
 
 
 def _make_ocr(text: str, conf: float = 0.85) -> OcrResult:
@@ -19,7 +20,7 @@ def _make_ocr(text: str, conf: float = 0.85) -> OcrResult:
                 bbox=(0, i * 30, 500, 25),
                 engine="tesseract",
             ))
-    raw = "\n".join(l.text for l in lines)
+    raw = "\n".join(ln.text for ln in lines)
     return OcrResult(
         raw_text=raw, lines=lines, engine_used="tesseract",
         mean_confidence=conf, needs_manual_review=False,

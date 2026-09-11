@@ -25,10 +25,10 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field as dc_field
-from datetime import datetime, date, timezone
+from dataclasses import dataclass
+from dataclasses import field as dc_field
+from datetime import UTC, datetime
 from enum import Enum
-from typing import List, Optional
 
 from dateutil import parser as dateutil_parser
 
@@ -57,7 +57,7 @@ class Violation:
     severity: Severity
     message: str                    # Human-readable violation description
     rule_reference: str             # e.g. "Rule 6(1)(f), LM(PC) Rules 2011"
-    extracted_value: Optional[str]  # What we found (or None)
+    extracted_value: str | None  # What we found (or None)
     confidence: float               # OCR confidence for this field
 
 
@@ -74,17 +74,17 @@ class ComplianceReport:
         checked_at          : ISO timestamp
     """
     verdict: Verdict
-    violations: List[Violation]
+    violations: list[Violation]
     extracted_fields: ExtractedFields
     needs_manual_review: bool
-    checked_at: str = dc_field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    checked_at: str = dc_field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     @property
-    def critical_violations(self) -> List[Violation]:
+    def critical_violations(self) -> list[Violation]:
         return [v for v in self.violations if v.severity == Severity.CRITICAL]
 
     @property
-    def warnings(self) -> List[Violation]:
+    def warnings(self) -> list[Violation]:
         return [v for v in self.violations if v.severity == Severity.WARNING]
 
     @property
@@ -137,8 +137,8 @@ def _field_violation(
     extracted: ExtractedField,
     critical_msg: str,
     rule_ref: str,
-    missing_msg: Optional[str] = None,
-) -> Optional[Violation]:
+    missing_msg: str | None = None,
+) -> Violation | None:
     """
     Helper: create a Violation for a missing or low-confidence field.
     Returns None if the field is found with adequate confidence.
@@ -185,7 +185,7 @@ class RuleEngine:
         Returns:
             ComplianceReport with verdict, violations, and warnings.
         """
-        violations: List[Violation] = []
+        violations: list[Violation] = []
 
         violations += self.check_mrp(fields.mrp)
         violations += self.check_net_quantity(fields.net_quantity)
@@ -216,7 +216,7 @@ class RuleEngine:
 
     # ── Individual Rule Checkers ──────────────────────────────────────────────
 
-    def check_mrp(self, mrp: ExtractedField) -> List[Violation]:
+    def check_mrp(self, mrp: ExtractedField) -> list[Violation]:
         """Rule 6(1)(f): MRP must be declared, inclusive of all taxes."""
         violations = []
         v = _field_violation(
@@ -257,7 +257,7 @@ class RuleEngine:
                 ))
         return violations
 
-    def check_net_quantity(self, net_qty: ExtractedField) -> List[Violation]:
+    def check_net_quantity(self, net_qty: ExtractedField) -> list[Violation]:
         """Rule 6(1)(b): Net quantity must be declared in standard units."""
         violations = []
         v = _field_violation(
@@ -271,7 +271,7 @@ class RuleEngine:
             violations.append(v)
         return violations
 
-    def check_mfg_date(self, mfg_date: ExtractedField) -> List[Violation]:
+    def check_mfg_date(self, mfg_date: ExtractedField) -> list[Violation]:
         """Rule 6(1)(e): Month and year of manufacture/packing must be declared."""
         v = _field_violation(
             mfg_date,
@@ -281,7 +281,7 @@ class RuleEngine:
         )
         return [v] if v else []
 
-    def check_best_before(self, bbd: ExtractedField) -> List[Violation]:
+    def check_best_before(self, bbd: ExtractedField) -> list[Violation]:
         """
         Rule 6(1)(g): Best before date required for perishable goods.
         If not found, issue a warning (it may be non-perishable).
@@ -311,7 +311,7 @@ class RuleEngine:
 
     def check_date_consistency(
         self, mfg_date: ExtractedField, bbd: ExtractedField
-    ) -> List[Violation]:
+    ) -> list[Violation]:
         """
         Cross-field check: Best Before date must be AFTER Manufacture date.
         This is our signature "Marie Gold" check from the pitch.
@@ -342,7 +342,7 @@ class RuleEngine:
 
         return []
 
-    def check_manufacturer(self, manufacturer: ExtractedField) -> List[Violation]:
+    def check_manufacturer(self, manufacturer: ExtractedField) -> list[Violation]:
         """Rule 6(1)(a): Name and address of manufacturer/packer/importer required."""
         v = _field_violation(
             manufacturer,
@@ -354,7 +354,7 @@ class RuleEngine:
 
     def check_consumer_care(
         self, phone: ExtractedField, email: ExtractedField
-    ) -> List[Violation]:
+    ) -> list[Violation]:
         """Rule 6(1)(k): Consumer care name, address, phone, email required."""
         violations = []
         if not phone.is_found:
@@ -388,7 +388,7 @@ class RuleEngine:
             ))
         return violations
 
-    def check_batch_number(self, batch: ExtractedField) -> List[Violation]:
+    def check_batch_number(self, batch: ExtractedField) -> list[Violation]:
         """Batch/lot number for traceability."""
         if not batch.is_found:
             return [Violation(

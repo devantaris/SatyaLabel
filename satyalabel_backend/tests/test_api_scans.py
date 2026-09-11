@@ -2,9 +2,9 @@
 Integration tests for FastAPI scan endpoints.
 """
 import io
-from PIL import Image
+
 from fastapi.testclient import TestClient
-import pytest
+from PIL import Image
 
 from main import app
 
@@ -28,7 +28,7 @@ def test_health_check():
 
 def test_scan_endpoint_success(monkeypatch):
     """Test POST /api/v1/scans with mocked OCR to ensure end-to-end API response contract."""
-    from app.services.ocr_service import OcrResult, OcrLine
+    from app.services.ocr_service import OcrLine, OcrResult
 
     mock_text = (
         "BRITANNIA Marie Gold Biscuits\n"
@@ -42,8 +42,8 @@ def test_scan_endpoint_success(monkeypatch):
         "Batch No: MG-2025-01"
     )
     lines = [
-        OcrLine(text=l, confidence=0.92, bbox=(10, i * 25, 400, 20), engine="tesseract")
-        for i, l in enumerate(mock_text.split("\n"))
+        OcrLine(text=ln, confidence=0.92, bbox=(10, i * 25, 400, 20), engine="tesseract")
+        for i, ln in enumerate(mock_text.split("\n"))
     ]
     mock_ocr = OcrResult(
         raw_text=mock_text,
@@ -74,7 +74,7 @@ def test_scan_endpoint_success(monkeypatch):
 
 def test_scan_pdf_report_endpoint(monkeypatch):
     """Test POST /api/v1/scans/report generates downloadable PDF."""
-    from app.services.ocr_service import OcrResult, OcrLine
+    from app.services.ocr_service import OcrLine, OcrResult
 
     mock_text = (
         "Sample Biscuit Label\n"
@@ -85,8 +85,8 @@ def test_scan_pdf_report_endpoint(monkeypatch):
         "Consumer Care: 1800-000-0000"
     )
     lines = [
-        OcrLine(text=l, confidence=0.88, bbox=(10, i * 25, 300, 20), engine="tesseract")
-        for i, l in enumerate(mock_text.split("\n"))
+        OcrLine(text=ln, confidence=0.88, bbox=(10, i * 25, 300, 20), engine="tesseract")
+        for i, ln in enumerate(mock_text.split("\n"))
     ]
     mock_ocr = OcrResult(
         raw_text=mock_text,

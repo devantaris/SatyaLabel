@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -223,7 +222,7 @@ class ImagePreprocessor:
             borderMode=cv2.BORDER_REPLICATE,
         )
 
-    def _try_perspective_correct(self, img: np.ndarray) -> Optional[np.ndarray]:
+    def _try_perspective_correct(self, img: np.ndarray) -> np.ndarray | None:
         """
         Attempt automatic 4-point perspective correction.
         Finds the largest rectangular contour (assumed to be the label boundary)

@@ -22,6 +22,11 @@ UPLOAD_DIR = settings.UPLOAD_DIR
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle events."""
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    if settings.ENV == "production" and settings.SECRET_KEY.startswith("change-me"):
+        raise RuntimeError(
+            "SECRET_KEY must be set to a strong random value in production "
+            "(generate with: openssl rand -hex 32)."
+        )
     logger.info("SatyaLabel backend starting up - version %s", settings.VERSION)
     yield
     logger.info("SatyaLabel backend shutting down")

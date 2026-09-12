@@ -1,0 +1,41 @@
+# SatyaLabel — cloud-host image (Render free tier and similar).
+#
+# Same as Dockerfile.prod with three cloud-specific changes:
+#   1. CPU-only torch installed explicitly first (the default PyPI index
+#      serves ~2.5 GB CUDA wheels on linux; cloud hosts have no GPU).
+#   2. CMD runs migrations then uvicorn on $PORT (injected by the host).
+#   3. Single uvicorn worker — sized for 512 MB free-tier containers.
+#      easyocr is imported lazily (ocr_service), so normal Tesseract-path
+#      scans fit comfortably; only the low-confidence EasyOCR fallback
+#      exceeds 512 MB.
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libgl1 \
+    libglib2.0-0 \
+    libpq-dev \
+    gdal-bin \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+COPY pyproject.toml README.md ./
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini main.py ./
+RUN pip install --no-cache-dir .
+
+RUN useradd --create-home --uid 10001 satya \
+    && mkdir -p /tmp/uploads \
+    && chown -R satya:satya /app /tmp/uploads
+USER satya
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

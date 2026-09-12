@@ -1,0 +1,32 @@
+# Render Blueprint — SatyaLabel API on the free plan.
+#
+# Database is external: Supabase Postgres with PostGIS. The three sync:false
+# secrets are entered in the Render dashboard when the blueprint is first
+# applied (and stored encrypted there — never in this repo).
+services:
+  - type: web
+    name: satyalabel-api
+    region: singapore
+    runtime: docker
+    rootDir: satyalabel_backend
+    dockerfilePath: ./Dockerfile.cloud
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL        # async engine + alembic (asyncpg)
+        sync: false
+      - key: DATABASE_URL_SYNC   # sync engine paths (psycopg2)
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: TESSERACT_CMD
+        value: /usr/bin/tesseract
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+      - key: ALLOWED_ORIGINS
+        value: '["https://satyalabel-api.onrender.com"]'

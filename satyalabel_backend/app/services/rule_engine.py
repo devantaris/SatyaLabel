@@ -322,6 +322,12 @@ class RuleEngine:
         if mfg_date.confidence < LOW_CONF or bbd.confidence < LOW_CONF:
             return []  # Too uncertain to make a cross-field judgment
 
+        # Relative durations ("6 months from packaging") are not absolute
+        # dates — dateutil's fuzzy parsing would invent a date from them.
+        for field in (mfg_date, bbd):
+            if any(w in field.value.lower() for w in ("month", "week", "year", "day", "from")):
+                return []
+
         try:
             mfg_dt = dateutil_parser.parse(mfg_date.value, dayfirst=False, fuzzy=True)
             bbd_dt = dateutil_parser.parse(bbd.value, dayfirst=False, fuzzy=True)

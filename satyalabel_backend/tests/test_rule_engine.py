@@ -150,6 +150,14 @@ class TestDateConsistency:
         violations = engine.check_date_consistency(mfg, bbd)
         assert violations == []
 
+    def test_relative_duration_skips_check(self, engine):
+        # "6 months from packaging" is not an absolute date — fuzzy parsing
+        # would invent one, so the cross-check must skip it entirely
+        mfg = _field("mfg_date", "15 Aug 2026")
+        bbd = _field("best_before_date", "6 months from packaging")
+        violations = engine.check_date_consistency(mfg, bbd)
+        assert violations == []
+
 
 # ── Consumer Care ─────────────────────────────────────────────────────────────
 

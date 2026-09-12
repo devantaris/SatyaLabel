@@ -58,22 +58,37 @@ _NET_QTY_PATTERNS = [
     ),
 ]
 
-# Manufacture Date — "Mfg: Jan 2025", "Mfd. 01/2025", "Date of Mfg: 12-2024"
+# Manufacture Date — "Mfg: Jan 2025", "Mfd. 01/2025", "Date of Mfg: 12-2024",
+# "Mfg Date: 15 Aug 2026", "Date of Manufacture: 2026/08/15"
 _MFG_DATE_PATTERNS = [
     re.compile(
-        r"(?:Mfg\.?|Mfd\.?|Manufactured\s+(?:On|Date)?|Date\s+of\s+(?:Mfg|Mfd|Manufacture|Manufacturing|Packing|Pkg))\s*[:\-]?\s*"
-        r"((?:\d{1,2}[/\-.])?(?:\d{1,2}[/\-.])?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"(?:Mfg\.?\s*Date|Mfd\.?\s*Date|Mfg\.?|Mfd\.?|Manufactured\s+(?:On|Date)?|Date\s+of\s+(?:Mfg|Mfd|Manufacture|Manufacturing|Packing|Pkg))\s*[:\-]?\s*"
+        r"(\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}"
+        r"|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s*,?\s*\d{2,4}"
+        r"|(?:\d{1,2}[/\-.])?(?:\d{1,2}[/\-.])?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
         r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|\d{1,2})[/\-. ]*\d{2,4})",
         re.IGNORECASE,
     ),
 ]
 
-# Best Before / Expiry Date — "Best Before: Dec 2025", "Exp: 12/2025", "Use By: 31.12.2025"
+# Best Before / Expiry Date — "Best Before: Dec 2025", "Exp: 12/2025", "Use By: 31.12.2025",
+# "Best Before Date: 15 Feb 2027", "Expiry: 2027/02/15", "Best Before: 6 months from packaging"
 _BBD_PATTERNS = [
     re.compile(
-        r"(?:Best\s+Before|BB\.?|BBD|Best\s+By|Exp(?:iry)?\.?|Use\s+By|Use\s+Before|Expiry\s+Date)\s*[:\-]?\s*"
-        r"((?:\d{1,2}[/\-.])?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"(?:Best\s+Before|BB\.?|BBD|Best\s+By|Exp(?:iry)?\.?|Use\s+By|Use\s+Before|Expiry\s+Date)"
+        r"(?:\s+Date)?\s*[:\-]?\s*"
+        r"(\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}"
+        r"|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s*,?\s*\d{2,4}"
+        r"|(?:\d{1,2}[/\-.])?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
         r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|\d{1,2})[/\-. ]*\d{2,4})",
+        re.IGNORECASE,
+    ),
+    # Relative durations — "Best Before: 6 months from packaging" (line search only)
+    re.compile(
+        r"(?:Best\s+Before|Use\s+By|Use\s+Before|Exp(?:iry)?\.?)(?:\s+Date)?\s*[:\-]?\s*"
+        r"(\d{1,2}\s*(?:months?|weeks?|years?|days?)\s+from\s+[^,\n]{0,40})",
         re.IGNORECASE,
     ),
 ]
@@ -81,7 +96,8 @@ _BBD_PATTERNS = [
 # Consumer Care Phone — Indian mobile (10-digit) or toll-free (1800-xxx)
 _CONSUMER_PHONE_PATTERNS = [
     re.compile(r"(?:1800[-\s]?\d{3,4}[-\s]?\d{3,4})", re.IGNORECASE),        # Toll-free
-    re.compile(r"(?:\+91[-\s]?)?[6-9]\d{9}"),                                   # Indian mobile
+    re.compile(r"\+91[-\s]?\d{2,4}[-\s]?\d{3,4}[-\s]?\d{4}"),                 # +91 STD landline
+    re.compile(r"(?:\+91[-\s]?)?[6-9]\d{4}[-\s]?\d{5}"),                                   # Indian mobile
     re.compile(r"(?:0\d{2,4}[-\s]?\d{6,8})"),                                   # STD landline
 ]
 

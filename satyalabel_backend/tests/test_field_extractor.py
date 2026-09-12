@@ -81,15 +81,34 @@ class TestDateExtraction:
         ("Mfg: Jan 2025", "mfg_date"),
         ("Mfd. 01/2025", "mfg_date"),
         ("Date of Manufacture: December 2024", "mfg_date"),
+        ("Mfg Date: 15 Aug 2026", "mfg_date"),
+        ("Date of Manufacture: 2026/08/15", "mfg_date"),
         ("Best Before: Dec 2027", "best_before_date"),
         ("Exp: 12/2026", "best_before_date"),
         ("Use By: March 2026", "best_before_date"),
+        ("Best Before Date: 15 Feb 2027", "best_before_date"),
+        ("Expiry: 2027/02/15", "best_before_date"),
+        ("Best Before: 6 months from packaging", "best_before_date"),
     ])
     def test_date_patterns(self, extractor, text, field_attr):
         ocr = _make_ocr(text)
         fields = extractor.extract(ocr)
         f = getattr(fields, field_attr)
         assert f.is_found, f"Expected {field_attr} to be found in: '{text}'"
+
+    @pytest.mark.parametrize("text,field_attr,expected", [
+        ("Date of Manufacture: 2026/08/15", "mfg_date", "2026/08/15"),
+        ("Mfg Date: 15 Aug 2026", "mfg_date", "15 Aug 2026"),
+        ("Expiry: 2027/02/15", "best_before_date", "2027/02/15"),
+        ("Best Before Date: 15 Feb 2027", "best_before_date", "15 Feb 2027"),
+        ("Best Before: 6 months from packaging", "best_before_date", "6 months from packaging"),
+    ])
+    def test_date_values(self, extractor, text, field_attr, expected):
+        ocr = _make_ocr(text)
+        fields = extractor.extract(ocr)
+        f = getattr(fields, field_attr)
+        assert f.is_found
+        assert f.value == expected
 
 
 # ── Consumer Care ─────────────────────────────────────────────────────────────
@@ -101,6 +120,10 @@ class TestConsumerCareExtraction:
         "18001234567",
         "+91 9876543210",
         "9876543210",
+        "+91 98765 43210",
+        "98765 43210",
+        "+91 11 4000 5000",
+        "011-40005000",
     ])
     def test_phone_variants(self, extractor, text):
         ocr = _make_ocr(f"Consumer Care: {text}")

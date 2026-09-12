@@ -59,15 +59,16 @@ class AppState extends ChangeNotifier {
     _connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
       hasNetwork = !results.contains(ConnectivityResult.none);
       notifyListeners();
-      if (hasNetwork) {
-        _checkBackendAndSync();
-      }
+      _checkBackendAndSync();
     });
     _checkBackendAndSync();
     // Poll backend health periodically so citizen mode can warn early and
     // the queue syncs even if the OS connectivity stream misses a change.
+    // NOTE: polled unconditionally — connectivity_plus cannot see adb
+    // reverse tunnels (USB-only setups report `none`), and the tunnel can
+    // come and go with USB replugs without any connectivity event firing.
     _healthPoll = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (hasNetwork) _checkBackendAndSync();
+      _checkBackendAndSync();
     });
   }
 

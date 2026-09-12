@@ -18,9 +18,14 @@ class SessionStore {
 
   final SharedPreferences _prefs;
 
-  /// Default targets the Android emulator host loopback.
-  /// Physical-device builds must point at the dev machine's LAN IP.
-  static const defaultBaseUrl = 'http://10.0.2.2:8000';
+  /// Default targets the Android emulator host loopback (10.0.2.2).
+  /// Physical devices using ADB reverse (`adb reverse tcp:8000 tcp:8000`)
+  /// must run/build with:
+  ///   flutter run --dart-define=BASE_URL=http://127.0.0.1:8000
+  static const defaultBaseUrl = String.fromEnvironment(
+    'BASE_URL',
+    defaultValue: 'http://10.0.2.2:8000',
+  );
 
   String get baseUrl => _prefs.getString(_kBaseUrl) ?? defaultBaseUrl;
   Future<void> setBaseUrl(String url) => _prefs.setString(_kBaseUrl, url);

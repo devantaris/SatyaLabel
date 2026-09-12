@@ -151,6 +151,9 @@ class ApiClient {
       ..files.add(http.MultipartFile.fromBytes(
         'image',
         imageBytes,
+        // filename is REQUIRED: python-multipart parses filename-less
+        // parts as text fields, which FastAPI's UploadFile rejects (422).
+        filename: 'label.${mimeType.split('/').last}',
         contentType: MediaType.parse(mimeType),
       ));
     if (latitude != null) request.fields['latitude'] = latitude.toString();
@@ -232,6 +235,7 @@ class ApiClient {
       ..files.add(http.MultipartFile.fromBytes(
         'image',
         imageBytes,
+        filename: 'label.${mimeType.split('/').last}',
         contentType: MediaType.parse(mimeType),
       ));
     if (inspectorBadge != null) request.fields['inspector_badge'] = inspectorBadge;

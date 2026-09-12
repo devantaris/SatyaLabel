@@ -190,8 +190,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Use 10.0.2.2 for the Android emulator, your computer\'s LAN IP '
-              'for a physical device. Restart the app after changing.',
+              'Use 10.0.2.2 for the Android emulator. For a physical device '
+              'with ADB reverse, use 127.0.0.1 (or your computer\'s LAN IP). '
+              'Restart the app after changing.',
               style: TextStyle(fontSize: 12),
             ),
           ],

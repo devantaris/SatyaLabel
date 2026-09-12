@@ -26,6 +26,11 @@ htmlcov/
 uploads/
 *.log
 
+# Local debug artifacts (OCR pipeline inspection)
+satyalabel_backend/debug_*.png
+satyalabel_backend/debug_*.jpg
+satyalabel_backend/scan_debug_*.jpg
+
 # OS / IDE
 .DS_Store
 Thumbs.db

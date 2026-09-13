@@ -168,7 +168,13 @@ satyalabel_frontend/lib/
 ### Analytics (Phase 6) — implemented
 - Backend: `app/services/analytics_repository.py` (raw SQL: `ST_SnapToGrid` heatmap, JSONB manufacturer aggregation, district join, overview counters, export rows) + `app/api/v1/analytics.py` (inspector-only routes incl. CSV). Query params: `days`, `grid_size`, `min_scans`, `limit`.
 - Flutter: `lib/ui/analytics/analytics_screen.dart` — inspector-only dashboard (overview cards, hotspots, repeat offenders, districts, 7d/30d/all window chips, CSV share) + ApiClient analytics methods.
+- **Web dashboard (2026-09-13)**: `app/static/dashboard.html` served at **`/dashboard`** (`main.py` FileResponse) — interactive Consumer Affairs dashboard: login (JWT → sessionStorage), leaflet.heat PostGIS heatmap + clickable cell markers, overview cards, repeat offenders, districts, 7d/30d/all filters, CSV export. Live URL: `https://satyalabel-api.onrender.com/dashboard`.
 - A live test inspector exists in the dev DB: `inspector@gov.in` / `inspect-2026` (seeded via SQL for E2E — remove or keep for demo).
+
+### OCR overhaul (2026-09-13, commits 51f72a9) — real-photo fix
+- **Problem**: real camera photos → all-fields-missing NON_COMPLIANT (bogus perspective warp to 1200×10575, destructive Otsu∧adaptive binarization, EasyOCR OOM at 512 MB).
+- **Fix**: perspective quad sanity checks (area 25–98%, aspect ≤3.5); Tesseract now fed CLAHE grayscale (it binarizes internally); **EasyOCR replaced by RapidOCR** (`rapidocr-onnxruntime`, ~100 MB RAM, fits free tier — torch preinstall dropped from `Dockerfile.cloud`); two-column label rows merged (`_merge_same_row`); MRP regex rejects LM licence numbers (`R-113/9`→`Rs.1.13/9`) via possessive quantifiers + `/digit` lookahead; batch codes must contain a digit; **zero mandatory fields readable → NEEDS_VERIFICATION "retake"** instead of NON_COMPLIANT (non-label photos). Flutter camera → `ResolutionPreset.max`.
+- Local Tesseract 5.4 now installed at the default config path (was: tests mock OCR only). 140 tests pass.
 
 ### Storage abstraction (Phase 7)
 - `app/services/storage.py` — `LocalStorage` (default, UPLOAD_DIR + `/uploads` mount) and `S3Storage` (boto3 via `pip install ".[s3]"`; `S3_PUBLIC_URL_BASE` or presigned URLs). Wired into scans API, Celery worker, and `scan_to_dict`. `main.py` mounts `/uploads` only for the local backend.

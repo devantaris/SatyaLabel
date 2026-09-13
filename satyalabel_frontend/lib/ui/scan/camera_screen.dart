@@ -1,14 +1,19 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../services/location_service.dart';
 import '../../state/app_state.dart';
+import 'crop_screen.dart';
 import 'scan_result_screen.dart';
 
 /// Camera capture → scan submission.
@@ -116,12 +121,31 @@ class _CameraScreenState extends State<CameraScreen>
 
     Uint8List? imageBytes;
     String? ocrText;
+    String? ocrLinesJson;
     try {
       final xfile = await controller.takePicture();
-      ocrText = await _recognizeText(xfile.path);
-      var bytes = await xfile.readAsBytes();
-      bytes = await _shrinkIfNeeded(bytes);
+
+      // Let the user frame the label — a tight crop reads far better
+      // than a whole-shelf photo.
+      if (!mounted) return;
+      final cropped = await Navigator.push<Uint8List>(
+        context,
+        MaterialPageRoute(builder: (_) => CropScreen(imagePath: xfile.path)),
+      );
+      if (cropped == null) {
+        // Cancelled — back to the camera, nothing submitted.
+        if (mounted) setState(() => _phase = _CapturePhase.ready);
+        return;
+      }
+
+      var bytes = await _shrinkIfNeeded(cropped);
       imageBytes = bytes;
+
+      // On-device OCR (ML Kit): text + per-line bounding boxes, so the
+      // backend can reassemble misaligned key/value blocks.
+      final ocr = await _recognize(bytes);
+      ocrText = ocr?.text;
+      ocrLinesJson = ocr?.linesJson;
 
       if (!mounted) return;
       final app = context.read<AppState>();
@@ -130,11 +154,12 @@ class _CameraScreenState extends State<CameraScreen>
       if (!app.backendReachable) {
         await app.queue.enqueue(
           bytes,
-          mimeType: 'image/jpeg',
+          mimeType: 'image/png',
           latitude: location?.latitude,
           longitude: location?.longitude,
           sessionId: _sessionId,
           ocrText: ocrText,
+          ocrLinesJson: ocrLinesJson,
         );
         if (mounted) setState(() => _phase = _CapturePhase.queued);
         return;
@@ -142,11 +167,12 @@ class _CameraScreenState extends State<CameraScreen>
 
       final result = await app.api.submitScan(
         bytes,
-        mimeType: 'image/jpeg',
+        mimeType: 'image/png',
         latitude: location?.latitude,
         longitude: location?.longitude,
         sessionId: _sessionId,
         ocrText: ocrText,
+        ocrLinesJson: ocrLinesJson,
       );
       await app.rememberScan(result.scanId);
 
@@ -184,11 +210,12 @@ class _CameraScreenState extends State<CameraScreen>
       final location = await LocationService.currentPosition();
       await app.queue.enqueue(
         imageBytes,
-        mimeType: 'image/jpeg',
+        mimeType: 'image/png',
         latitude: location?.latitude,
         longitude: location?.longitude,
         sessionId: _sessionId,
         ocrText: ocrText,
+        ocrLinesJson: ocrLinesJson,
       );
       if (mounted) setState(() => _phase = _CapturePhase.queued);
     } catch (e) {
@@ -200,19 +227,43 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  /// Runs ML Kit text recognition on the captured photo. Returns null when
-  /// recognition fails or finds nothing — the backend then falls back to
-  /// its own OCR engines.
-  Future<String?> _recognizeText(String imagePath) async {
+  /// Runs ML Kit text recognition on the cropped image bytes. Returns the
+  /// recognised text plus a JSON array of per-line results with bounding
+  /// boxes, or null when recognition fails — the backend then falls back
+  /// to its own OCR engines.
+  Future<({String text, String linesJson})?> _recognize(Uint8List bytes) async {
+    File? temp;
     try {
+      final dir = await getTemporaryDirectory();
+      temp = File('${dir.path}/satyalabel_ocr_'
+          '${DateTime.now().microsecondsSinceEpoch}.png');
+      await temp.writeAsBytes(bytes);
       final recognized = await _textRecognizer.processImage(
-        InputImage.fromFilePath(imagePath),
+        InputImage.fromFilePath(temp.path),
       );
+      final lines = <Map<String, dynamic>>[];
+      for (final block in recognized.blocks) {
+        for (final line in block.lines) {
+          final b = line.boundingBox;
+          lines.add({
+            'text': line.text,
+            'x': b.left.round(),
+            'y': b.top.round(),
+            'w': b.width.round(),
+            'h': b.height.round(),
+          });
+        }
+      }
       final text = recognized.text.trim();
-      return text.isEmpty ? null : text;
+      if (text.isEmpty && lines.isEmpty) return null;
+      return (text: text, linesJson: jsonEncode(lines));
     } catch (e) {
       debugPrint('ML Kit OCR failed: $e');
       return null;
+    } finally {
+      try {
+        if (temp != null && temp.existsSync()) temp.deleteSync();
+      } catch (_) {}
     }
   }
 
@@ -360,25 +411,69 @@ class _CameraScreenState extends State<CameraScreen>
   }
 }
 
-class _SubmittingOverlay extends StatelessWidget {
+class _SubmittingOverlay extends StatefulWidget {
   const _SubmittingOverlay();
 
   @override
+  State<_SubmittingOverlay> createState() => _SubmittingOverlayState();
+}
+
+class _SubmittingOverlayState extends State<_SubmittingOverlay> {
+  static const _steps = [
+    'Reading label on-device…',
+    'Extracting mandatory declarations…',
+    'Applying Legal Metrology Rules, 2011…',
+    'Generating compliance verdict…',
+  ];
+
+  int _step = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    Timer.periodic(const Duration(milliseconds: 1100), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_step < _steps.length - 1) setState(() => _step++);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Colors.black54,
+    return ColoredBox(
+      color: Colors.black87,
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 16),
-            Text(
-              'Scanning label…\nOCR + Legal Metrology rule engine',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i <= _step; i++) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (i < _step)
+                      const Icon(Icons.check_circle, color: Colors.tealAccent, size: 20)
+                    else
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.tealAccent),
+                      ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _steps[i],
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
+                ),
+                if (i < _steps.length - 1) const SizedBox(height: 18),
+              ],
+            ],
+          ),
         ),
       ),
     );

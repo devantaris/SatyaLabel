@@ -22,6 +22,7 @@ class QueuedScan {
     this.longitude,
     this.sessionId,
     this.ocrText,
+    this.ocrLinesJson,
     required this.queuedAt,
   });
 
@@ -33,6 +34,7 @@ class QueuedScan {
         longitude: (json['longitude'] as num?)?.toDouble(),
         sessionId: json['session_id'] as String?,
         ocrText: json['ocr_text'] as String?,
+        ocrLinesJson: json['ocr_lines_json'] as String?,
         queuedAt: DateTime.parse(json['queued_at'] as String),
       );
 
@@ -43,6 +45,7 @@ class QueuedScan {
   final double? longitude;
   final String? sessionId;
   final String? ocrText; // on-device ML Kit OCR text (uploaded with image)
+  final String? ocrLinesJson; // structured ML Kit lines (text + bbox JSON)
   final DateTime queuedAt;
 
   Map<String, dynamic> toJson() => {
@@ -53,6 +56,7 @@ class QueuedScan {
         'longitude': longitude,
         'session_id': sessionId,
         'ocr_text': ocrText,
+        'ocr_lines_json': ocrLinesJson,
         'queued_at': queuedAt.toIso8601String(),
       };
 }
@@ -112,6 +116,7 @@ class OfflineQueue extends ChangeNotifier {
     double? longitude,
     String? sessionId,
     String? ocrText,
+    String? ocrLinesJson,
   }) async {
     if (!_queueDir.existsSync()) {
       _queueDir.createSync(recursive: true);
@@ -136,6 +141,7 @@ class OfflineQueue extends ChangeNotifier {
       longitude: longitude,
       sessionId: sessionId,
       ocrText: ocrText,
+      ocrLinesJson: ocrLinesJson,
       queuedAt: DateTime.now(),
     );
     _items.add(entry);
@@ -175,6 +181,7 @@ class OfflineQueue extends ChangeNotifier {
             longitude: entry.longitude,
             sessionId: entry.sessionId,
             ocrText: entry.ocrText,
+            ocrLinesJson: entry.ocrLinesJson,
           );
           synced++;
           await file.delete();

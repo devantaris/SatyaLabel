@@ -141,7 +141,8 @@ class ApiClient {
   /// When [sessionId] is set the scan joins an inspector batch session;
   /// a Bearer token (if logged in) binds the scan to the account.
   /// [ocrText] is on-device ML Kit OCR output — when supplied the backend
-  /// skips its own OCR engines.
+  /// skips its own OCR engines. [ocrLinesJson] is the structured variant
+  /// (JSON array of {text,x,y,w,h} lines) and takes precedence.
   Future<ScanResult> submitScan(
     Uint8List imageBytes, {
     required String mimeType,
@@ -149,6 +150,7 @@ class ApiClient {
     double? longitude,
     String? sessionId,
     String? ocrText,
+    String? ocrLinesJson,
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/v1/scans/'))
       ..files.add(http.MultipartFile.fromBytes(
@@ -162,7 +164,9 @@ class ApiClient {
     if (latitude != null) request.fields['latitude'] = latitude.toString();
     if (longitude != null) request.fields['longitude'] = longitude.toString();
     if (sessionId != null) request.fields['session_id'] = sessionId;
-    if (ocrText != null && ocrText.trim().isNotEmpty) {
+    if (ocrLinesJson != null && ocrLinesJson.trim().isNotEmpty) {
+      request.fields['client_ocr_lines'] = ocrLinesJson;
+    } else if (ocrText != null && ocrText.trim().isNotEmpty) {
       request.fields['client_ocr_text'] = ocrText;
     }
     request.headers.addAll(_headers);

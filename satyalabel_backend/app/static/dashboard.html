@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SatyaLabel — Enforcement Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+  :root {
+    --navy: #0b2545;
+    --navy-2: #13315c;
+    --saffron: #ff8c42;
+    --green: #1a7f4b;
+    --red: #c0392b;
+    --amber: #b7791f;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1c2733;
+    --muted: #5c6b7a;
+    --border: #dde3ea;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ── Login ─────────────────────────────────────────── */
+  #login-view {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 60%, #1d4e89 100%);
+  }
+  .login-card {
+    background: var(--card); border-radius: 14px; padding: 40px 36px; width: 380px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .login-card h1 { font-size: 22px; color: var(--navy); margin-bottom: 4px; }
+  .login-card p.sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .login-card label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .login-card input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
+  }
+  .login-card input:focus { outline: 2px solid var(--navy-2); border-color: transparent; }
+  .btn {
+    display: inline-block; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: filter .15s;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn-primary { background: var(--navy); color: #fff; width: 100%; margin-top: 20px; padding: 12px; }
+  .login-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 16px; }
+  .brand-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .brand-mark {
+    width: 40px; height: 40px; border-radius: 10px; flex: none;
+    background: conic-gradient(var(--saffron) 0 33%, #ffffff 33% 66%, var(--green) 66% 100%);
+    display: grid; place-items: center; font-size: 20px; box-shadow: inset 0 0 0 3px rgba(11,37,69,.9);
+  }
+
+  /* ── Dashboard shell ───────────────────────────────── */
+  #dash-view { display: none; }
+  header.topbar {
+    background: var(--navy); color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  header.topbar .title { display: flex; align-items: center; gap: 12px; }
+  header.topbar h1 { font-size: 18px; font-weight: 600; }
+  header.topbar .title small { display: block; font-size: 11px; opacity: .75; font-weight: 400; letter-spacing: .05em; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .chip {
+    border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff;
+    border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  .chip.active { background: var(--saffron); border-color: var(--saffron); color: var(--navy); font-weight: 700; }
+  .btn-logout { background: rgba(255,255,255,.15); color: #fff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat {
+    background: var(--card); border-radius: 12px; padding: 16px 18px;
+    border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(16,36,62,.06);
+  }
+  .stat .num { font-size: 26px; font-weight: 700; margin-top: 2px; }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .num.total { color: var(--navy); } .num.bad { color: var(--red); }
+  .num.warn { color: var(--amber); } .num.good { color: var(--green); }
+  .num.plain { color: var(--text); }
+
+  .panel {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(16,36,62,.06); margin-bottom: 20px; overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+  }
+  .panel-head h2 { font-size: 15px; color: var(--navy); }
+  .panel-head .hint { font-size: 12px; color: var(--muted); }
+  #map { height: 480px; width: 100%; }
+  .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .tables { grid-template-columns: 1fr; } }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 10px 14px; background: #f0f3f7; color: var(--muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0;
+  }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); }
+  tbody tr:hover { background: #f8fafc; }
+  .tbl-wrap { max-height: 340px; overflow-y: auto; }
+  .badge { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 11px; font-weight: 700; }
+  .badge.bad { background: #fdecea; color: var(--red); }
+  .badge.warn { background: #fdf6e3; color: var(--amber); }
+  .badge.good { background: #e8f5ee; color: var(--green); }
+  .empty { padding: 28px; text-align: center; color: var(--muted); font-size: 13px; }
+  .loading { padding: 60px; text-align: center; color: var(--muted); }
+  .spin {
+    width: 26px; height: 26px; margin: 0 auto 10px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--navy); animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: #fff;
+    padding: 12px 18px; border-radius: 10px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .legend {
+    background: rgba(255,255,255,.92); border-radius: 8px; padding: 8px 12px; font-size: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18); line-height: 1.7;
+  }
+  .legend b { display: block; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="login-view">
+  <form class="login-card" id="login-form">
+    <div class="brand-row">
+      <div class="brand-mark">⚖</div>
+      <div>
+        <h1>SatyaLabel</h1>
+        <p style="font-size:12px;color:var(--muted)">Department of Consumer Affairs · Enforcement Dashboard</p>
+      </div>
+    </div>
+    <p class="sub">Legal Metrology (Packaged Commodities) Rules, 2011 — violation intelligence platform. Inspector / admin access only.</p>
+    <label for="email">Official email</label>
+    <input type="email" id="email" autocomplete="username" required placeholder="inspector@gov.in">
+    <label for="password">Password</label>
+    <input type="password" id="password" autocomplete="current-password" required>
+    <div class="login-error" id="login-error"></div>
+    <button type="submit" class="btn btn-primary" id="login-btn">Sign in</button>
+  </form>
+</div>
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div id="dash-view">
+  <header class="topbar">
+    <div class="title">
+      <div class="brand-mark" style="width:34px;height:34px;font-size:17px">⚖</div>
+      <div>
+        <h1>SatyaLabel — Enforcement Dashboard</h1>
+        <small>DEPARTMENT OF CONSUMER AFFAIRS · LEGAL METROLOGY DIVISION</small>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="chip" data-days="7">7 days</button>
+      <button class="chip" data-days="30">30 days</button>
+      <button class="chip active" data-days="">All time</button>
+      <button class="btn btn-logout" id="export-btn" title="Download CSV evidence bundle">⬇ Export CSV</button>
+      <button class="btn btn-logout" id="logout-btn">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="cards" id="cards">
+      <div class="stat"><div class="lbl">Total scans</div><div class="num total" id="s-total">—</div></div>
+      <div class="stat"><div class="lbl">Non-compliant</div><div class="num bad" id="s-noncomp">—</div></div>
+      <div class="stat"><div class="lbl">Needs verification</div><div class="num warn" id="s-needsver">—</div></div>
+      <div class="stat"><div class="lbl">Compliant</div><div class="num good" id="s-comp">—</div></div>
+      <div class="stat"><div class="lbl">Flagged for review</div><div class="num plain" id="s-review">—</div></div>
+      <div class="stat"><div class="lbl">Raid sessions</div><div class="num plain" id="s-sessions">—</div></div>
+      <div class="stat"><div class="lbl">Scans (24 h)</div><div class="num plain" id="s-24h">—</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Violation Hotspots — Live Heatmap</h2>
+        <span class="hint">PostGIS grid-binned · geotagged scans · click a cell for details</span>
+      </div>
+      <div id="map"><div class="loading"><div class="spin"></div>Connecting to scan database…</div></div>
+    </div>
+
+    <div class="tables">
+      <div class="panel">
+        <div class="panel-head"><h2>Repeat-Offender Manufacturers</h2></div>
+        <div class="tbl-wrap" id="offenders-wrap"><div class="empty">No data</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>District-wise Activity</h2></div>
+        <div class="tbl-wrap" id="districts-wrap"><div class="empty">No data</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const API = "";
+let token = sessionStorage.getItem("sl_token") || "";
+let days = "";
+let map = null, heatLayer = null, cellMarkers = [];
+
+// ── helpers ──────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2600);
+}
+async function api(path) {
+  const res = await fetch(path, { headers: { Authorization: "Bearer " + token } });
+  if (res.status === 401 || res.status === 403) { showLogin("Session expired — sign in again."); throw new Error("auth"); }
+  if (!res.ok) throw new Error("API " + res.status + " " + path);
+  return res.json();
+}
+function qs(extra) {
+  const p = new URLSearchParams(extra);
+  if (days) p.set("days", days);
+  return p.toString() ? "?" + p.toString() : "";
+}
+
+// ── auth ─────────────────────────────────────────────────
+function showLogin(msg) {
+  token = ""; sessionStorage.removeItem("sl_token");
+  $("dash-view").style.display = "none";
+  $("login-view").style.display = "flex";
+  $("login-error").textContent = msg || "";
+}
+$("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("login-error").textContent = "";
+  $("login-btn").textContent = "Signing in…";
+  try {
+    const res = await fetch(API + "/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: $("email").value.trim(), password: $("password").value }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      $("login-error").textContent = body.detail || ("Login failed (" + res.status + ")");
+      return;
+    }
+    const data = await res.json();
+    token = data.access_token;
+    sessionStorage.setItem("sl_token", token);
+    enterDashboard();
+  } catch (err) {
+    $("login-error").textContent = "Cannot reach server — check your connection.";
+  } finally {
+    $("login-btn").textContent = "Sign in";
+  }
+});
+$("logout-btn").addEventListener("click", () => showLogin());
+
+// ── dashboard ────────────────────────────────────────────
+function enterDashboard() {
+  $("login-view").style.display = "none";
+  $("dash-view").style.display = "block";
+  if (!map) initMap();
+  refreshAll();
+}
+document.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => {
+  document.querySelectorAll(".chip").forEach((x) => x.classList.remove("active"));
+  c.classList.add("active");
+  days = c.dataset.days;
+  refreshAll();
+}));
+
+async function refreshAll() {
+  try {
+    const [overview, heat, manufacturers, districts] = await Promise.all([
+      api("/api/v1/analytics/overview" + qs()),
+      api("/api/v1/analytics/heatmap" + qs("grid_size=0.03&min_scans=1")),
+      api("/api/v1/analytics/manufacturers" + qs("min_scans=1")),
+      api("/api/v1/analytics/districts" + qs()),
+    ]);
+    renderOverview(overview);
+    renderHeatmap(heat.points || []);
+    renderOffenders(manufacturers.items || []);
+    renderDistricts(districts.items || []);
+  } catch (err) {
+    if (err.message !== "auth") toast("Failed to load analytics: " + err.message);
+  }
+}
+
+function renderOverview(o) {
+  $("s-total").textContent = o.total_scans ?? "—";
+  $("s-noncomp").textContent = o.non_compliant ?? "—";
+  $("s-needsver").textContent = o.needs_verification ?? "—";
+  $("s-comp").textContent = o.compliant ?? "—";
+  $("s-review").textContent = o.needs_review ?? "—";
+  $("s-sessions").textContent = o.sessions ?? "—";
+  $("s-24h").textContent = o.scans_24h ?? "—";
+}
+
+function initMap() {
+  map = L.map("map", { zoomControl: true }).setView([22.8, 79.6], 5);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "© OpenStreetMap contributors",
+  }).addTo(map);
+  const legend = L.control({ position: "bottomright" });
+  legend.onAdd = function () {
+    const d = L.DomUtil.create("div", "legend");
+    d.innerHTML = "<b>Violation density</b>🟥 High &nbsp; 🟧 Medium &nbsp; 🟨 Low<br>Circle size = scan volume";
+    return d;
+  };
+  legend.addTo(map);
+}
+
+function renderHeatmap(points) {
+  if (!map) return;
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  cellMarkers.forEach((m) => map.removeLayer(m));
+  cellMarkers = [];
+
+  if (!points.length) {
+    L.popup().setLatLng([22.8, 79.6]).setContent("No geotagged scans in this window yet — scan labels with the mobile app to populate the heatmap.").openOn(map);
+    return;
+  }
+
+  const maxViol = Math.max(...points.map((p) => p.violations), 1);
+  const heatData = points.map((p) => [p.latitude, p.longitude, 0.15 + 0.85 * (p.violations / maxViol)]);
+  heatLayer = L.heatLayer(heatData, {
+    radius: 28, blur: 20, maxZoom: 12,
+    gradient: { 0.2: "#f9d423", 0.5: "#ff8c42", 0.8: "#e53935", 1.0: "#8e0000" },
+  }).addTo(map);
+
+  points.forEach((p) => {
+    const rate = Math.round((p.violation_rate || 0) * 100);
+    const marker = L.circleMarker([p.latitude, p.longitude], {
+      radius: 5 + Math.min(14, Math.sqrt(p.total_scans) * 2),
+      color: "#c0392b", weight: 1, fillColor: "#ffffff", fillOpacity: 0.25, opacity: 0.7,
+    }).bindPopup(
+      "<b>Grid cell " + p.latitude.toFixed(3) + ", " + p.longitude.toFixed(3) + "</b><br>" +
+      "Total scans: <b>" + p.total_scans + "</b><br>" +
+      "Non-compliant: <b style='color:#c0392b'>" + p.violations + "</b> (" + rate + "%)<br>" +
+      "Needs verification: " + p.needs_verification
+    );
+    marker.addTo(map);
+    cellMarkers.push(marker);
+  });
+
+  map.fitBounds(L.latLngBounds(points.map((p) => [p.latitude, p.longitude])).pad(0.25), { maxZoom: 12 });
+}
+
+function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"; }
+
+function renderOffenders(items) {
+  const wrap = $("offenders-wrap");
+  if (!items.length) { wrap.innerHTML = '<div class="empty">No manufacturer identified from scans in this window yet.<br>Manufacturers appear here once labels are scanned and read.</div>'; return; }
+  let html = "<table><thead><tr><th>Manufacturer</th><th>Scans</th><th>Outcome</th><th>Last seen</th></tr></thead><tbody>";
+  for (const m of items) {
+    html += "<tr><td>" + esc(m.manufacturer) + "</td><td>" + m.total_scans + "</td>" +
+      "<td><span class='badge bad'>" + m.non_compliant + " ✗</span> <span class='badge warn'>" + m.needs_verification + " ?</span> <span class='badge good'>" + m.compliant + " ✓</span></td>" +
+      "<td>" + fmtDate(m.last_seen) + "</td></tr>";
+  }
+  wrap.innerHTML = html + "</tbody></table>";
+}
+
+function renderDistricts(items) {
+  const wrap = $("districts-wrap");
+  if (!items.length) { wrap.innerHTML = '<div class="empty">No district-tagged inspector activity in this window yet.<br>Districts appear once logged-in inspectors record scans.</div>'; return; }
+  let html = "<table><thead><tr><th>District</th><th>Scans</th><th>Non-compliant</th><th>Needs verif.</th><th>Inspectors</th></tr></thead><tbody>";
+  for (const d of items) {
+    html += "<tr><td>" + esc(d.district) + "</td><td>" + d.total_scans + "</td>" +
+      "<td><span class='badge bad'>" + d.non_compliant + "</span></td>" +
+      "<td>" + d.needs_verification + "</td><td>" + d.contributors + "</td></tr>";
+  }
+  wrap.innerHTML = html + "</tbody></table>";
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+$("export-btn").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/v1/analytics/export" + qs(), { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "satyalabel_evidence.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Evidence CSV downloaded");
+  } catch (err) { toast("Export failed: " + err.message); }
+});
+
+// auto-enter if a session token exists
+if (token) enterDashboard();
+</script>
+</body>
+</html>

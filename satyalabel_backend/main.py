@@ -5,9 +5,11 @@ SIH 2026 | Problem Statement SIH26034 | Team: The Hippos
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_v1_router
@@ -16,6 +18,7 @@ from app.core.config import settings
 logger = logging.getLogger("satyalabel")
 
 UPLOAD_DIR = settings.UPLOAD_DIR
+STATIC_DIR = Path(__file__).parent / "app" / "static"
 
 
 @asynccontextmanager
@@ -66,3 +69,9 @@ if settings.STORAGE_BACKEND == "local":
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "service": "SatyaLabel", "version": settings.VERSION}
+
+
+@app.get("/dashboard", include_in_schema=False)
+async def enforcement_dashboard():
+    """Interactive Consumer Affairs dashboard (heatmap, offenders, districts)."""
+    return FileResponse(STATIC_DIR / "dashboard.html")

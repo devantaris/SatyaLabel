@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:satyalabel_frontend/models/scan_models.dart';
+import 'package:satyalabel_frontend/state/app_state.dart';
 import 'package:satyalabel_frontend/ui/checklist/checklist_sheet.dart';
 import 'package:satyalabel_frontend/ui/rules/rules_sheet.dart';
+import 'package:satyalabel_frontend/ui/theme.dart';
 import 'package:satyalabel_frontend/ui/widgets.dart';
 
 ScanResult _result(Verdict verdict, {String? summary}) => ScanResult(
@@ -155,6 +157,17 @@ void main() {
     await tester.pump();
 
     expect(find.text('Rule 6(1)(e)'), findsOneWidget);
+  });
+
+  test('AppPersona values and themed colors are properly defined', () {
+    expect(AppPersona.values, [
+      AppPersona.consumer,
+      AppPersona.citizen,
+      AppPersona.inspector,
+    ]);
+    expect(AppColors.consumerPrimary.value, isNonZero);
+    expect(AppColors.citizenPrimary.value, isNonZero);
+    expect(AppColors.inspectorPrimary.value, isNonZero);
   });
 }
 

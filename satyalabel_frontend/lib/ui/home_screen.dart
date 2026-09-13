@@ -39,6 +39,30 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedTabIndex = index);
   }
 
+  int _mapTabToStackIndex(int tabIndex, AppPersona persona) {
+    if (tabIndex == 0) return 0;
+    return switch (persona) {
+      AppPersona.consumer => switch (tabIndex) {
+          1 => 1, // History / My Scans
+          2 => 5, // 1915 Helpline / Grievance
+          3 => 3, // Consumer Rights / Rules
+          _ => 0,
+        },
+      AppPersona.citizen => switch (tabIndex) {
+          1 => 1, // Evidence Log
+          2 => 3, // LM(PC) Rules
+          3 => 5, // Grievance Desk
+          _ => 0,
+        },
+      AppPersona.inspector => switch (tabIndex) {
+          1 => 2, // Batch Raids
+          2 => 4, // Spatial Radar
+          3 => 3, // Statutory Standards
+          _ => 0,
+        },
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -46,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
+        preferredSize: const Size.fromHeight(108),
         child: Column(
           children: [
             const TricolorStripe(height: 3.5),
@@ -109,6 +133,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 4),
               ],
             ),
+            _PersonaSelectorBar(
+              activePersona: app.activePersona,
+              onSelectPersona: (p) {
+                app.setActivePersona(p);
+                setState(() => _selectedTabIndex = 0);
+              },
+            ),
           ],
         ),
       ),
@@ -119,62 +150,148 @@ class _HomeScreenState extends State<HomeScreen> {
         onAuthPressed: () => _onAuthPressed(context, app),
       ),
       body: IndexedStack(
-        index: _selectedTabIndex,
+        index: _mapTabToStackIndex(_selectedTabIndex, app.activePersona),
         children: [
-          _DashboardTabView(
+          _ActivePersonaDashboardView(
             onNavigateTab: _navigateToTab,
             onEditBaseUrl: () => _editBaseUrl(context, app),
           ),
           const HistoryScreen(),
           const BatchSessionsScreen(),
           const RulesSheet(),
+          const AnalyticsScreen(),
+          const GrievanceSheet(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedTabIndex,
         onDestinationSelected: (i) => setState(() => _selectedTabIndex = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.space_dashboard_outlined),
-            selectedIcon: Icon(Icons.space_dashboard),
-            label: 'Command',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            selectedIcon: Icon(Icons.description),
-            label: 'Records',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.badge_outlined),
-            selectedIcon: Icon(Icons.badge),
-            label: 'Raids',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Standards',
-          ),
-        ],
+        destinations: switch (app.activePersona) {
+          AppPersona.consumer => const [
+              NavigationDestination(
+                icon: Icon(Icons.shopping_bag_outlined),
+                selectedIcon: Icon(Icons.shopping_bag),
+                label: 'Shopper',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history),
+                label: 'My Scans',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.phone_in_talk_outlined),
+                selectedIcon: Icon(Icons.phone_in_talk),
+                label: '1915 Help',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.verified_user_outlined),
+                selectedIcon: Icon(Icons.verified_user),
+                label: 'Rights',
+              ),
+            ],
+          AppPersona.citizen => const [
+              NavigationDestination(
+                icon: Icon(Icons.fact_check_outlined),
+                selectedIcon: Icon(Icons.fact_check),
+                label: 'Audit Hub',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.description_outlined),
+                selectedIcon: Icon(Icons.description),
+                label: 'Evidence',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.menu_book_outlined),
+                selectedIcon: Icon(Icons.menu_book),
+                label: 'LM Rules',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.report_outlined),
+                selectedIcon: Icon(Icons.report),
+                label: 'Grievance',
+              ),
+            ],
+          AppPersona.inspector => const [
+              NavigationDestination(
+                icon: Icon(Icons.space_dashboard_outlined),
+                selectedIcon: Icon(Icons.space_dashboard),
+                label: 'Command',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.badge_outlined),
+                selectedIcon: Icon(Icons.badge),
+                label: 'Raids',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.radar_outlined),
+                selectedIcon: Icon(Icons.radar),
+                label: 'Radar',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.gavel_outlined),
+                selectedIcon: Icon(Icons.gavel),
+                label: 'Standards',
+              ),
+            ],
+        },
       ),
       floatingActionButton: _selectedTabIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CameraScreen()),
-              ),
-              backgroundColor: AppColors.navy,
-              foregroundColor: Colors.white,
-              elevation: 3,
-              icon: const Icon(Icons.document_scanner, size: 19),
-              label: const Text(
-                'Scan Label',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
+          ? switch (app.activePersona) {
+              AppPersona.consumer => FloatingActionButton.extended(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CameraScreen()),
+                  ),
+                  backgroundColor: AppColors.consumerPrimary,
+                  foregroundColor: Colors.white,
+                  elevation: 3,
+                  icon: const Icon(Icons.qr_code_scanner, size: 19),
+                  label: const Text(
+                    'Check Price',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
                 ),
-              ),
-            )
+              AppPersona.citizen => FloatingActionButton.extended(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CameraScreen()),
+                  ),
+                  backgroundColor: AppColors.citizenPrimary,
+                  foregroundColor: Colors.white,
+                  elevation: 3,
+                  icon: const Icon(Icons.document_scanner, size: 19),
+                  label: const Text(
+                    'Audit Label',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              AppPersona.inspector => FloatingActionButton.extended(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CameraScreen()),
+                  ),
+                  backgroundColor: AppColors.navy,
+                  foregroundColor: Colors.white,
+                  elevation: 3,
+                  icon: const Icon(Icons.shield, size: 19),
+                  label: const Text(
+                    'Execute Raid',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+            }
           : null,
     );
   }
@@ -400,8 +517,8 @@ class _ConnectivityPill extends StatelessWidget {
   }
 }
 
-class _DashboardTabView extends StatelessWidget {
-  const _DashboardTabView({
+class _ActivePersonaDashboardView extends StatelessWidget {
+  const _ActivePersonaDashboardView({
     required this.onNavigateTab,
     required this.onEditBaseUrl,
   });
@@ -412,24 +529,673 @@ class _DashboardTabView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    return switch (app.activePersona) {
+      AppPersona.consumer => _ConsumerDashboardTabView(
+          app: app,
+          onNavigateTab: onNavigateTab,
+          onEditBaseUrl: onEditBaseUrl,
+        ),
+      AppPersona.citizen => _CitizenDashboardTabView(
+          app: app,
+          onNavigateTab: onNavigateTab,
+          onEditBaseUrl: onEditBaseUrl,
+        ),
+      AppPersona.inspector => _InspectorDashboardTabView(
+          app: app,
+          onNavigateTab: onNavigateTab,
+          onEditBaseUrl: onEditBaseUrl,
+        ),
+    };
+  }
+}
 
+class _PersonaSelectorBar extends StatelessWidget {
+  const _PersonaSelectorBar({
+    required this.activePersona,
+    required this.onSelectPersona,
+  });
+
+  final AppPersona activePersona;
+  final ValueChanged<AppPersona> onSelectPersona;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.navy,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Container(
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        padding: const EdgeInsets.all(2.5),
+        child: Row(
+          children: [
+            _PersonaSegment(
+              title: 'Consumer',
+              icon: Icons.shopping_bag_outlined,
+              isSelected: activePersona == AppPersona.consumer,
+              activeBg: AppColors.consumerPrimary,
+              activeColor: Colors.white,
+              onTap: () => onSelectPersona(AppPersona.consumer),
+            ),
+            _PersonaSegment(
+              title: 'Citizen',
+              icon: Icons.person_outline,
+              isSelected: activePersona == AppPersona.citizen,
+              activeBg: AppColors.citizenPrimary,
+              activeColor: Colors.white,
+              onTap: () => onSelectPersona(AppPersona.citizen),
+            ),
+            _PersonaSegment(
+              title: 'Inspector',
+              icon: Icons.shield_outlined,
+              isSelected: activePersona == AppPersona.inspector,
+              activeBg: const Color(0xFFD4AF37),
+              activeColor: AppColors.navyDark,
+              onTap: () => onSelectPersona(AppPersona.inspector),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonaSegment extends StatelessWidget {
+  const _PersonaSegment({
+    required this.title,
+    required this.icon,
+    required this.isSelected,
+    required this.activeBg,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final bool isSelected;
+  final Color activeBg;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: isSelected ? activeColor : Colors.white.withValues(alpha: 0.7),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                    color: isSelected ? activeColor : Colors.white.withValues(alpha: 0.75),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------- 1. CONSUMER DASHBOARD
+class _ConsumerDashboardTabView extends StatelessWidget {
+  const _ConsumerDashboardTabView({
+    required this.app,
+    required this.onNavigateTab,
+    required this.onEditBaseUrl,
+  });
+
+  final AppState app;
+  final void Function(int) onNavigateTab;
+  final VoidCallback onEditBaseUrl;
+
+  @override
+  Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: app.refreshConnectivity,
       child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          // System Notice if Offline
           if (!app.backendReachable)
             StatusBanner(
               icon: Icons.cloud_off,
               message: app.hasNetwork
                   ? 'Server unreachable at ${app.api.baseUrl} — scans stored securely on disk'
-                  : 'No network interface detected — offline queue actively archiving scans',
+                  : 'No network detected — offline queue will store price checks locally',
               color: AppColors.saffron,
+              action: TextButton(onPressed: onEditBaseUrl, child: const Text('Change Endpoint')),
+            ),
+
+          // Consumer Masthead
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.consumerBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.consumerBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.consumerPrimary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shopping_bag, size: 11, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            'CONSUMER SHIELD · JAGO GRAHAK JAGO',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppColors.consumerBorder),
+                      ),
+                      child: const Text(
+                        'FREE PUBLIC ACCESS',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.consumerPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Smart Shopper Protection',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.consumerPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Verify packaging before you buy. Check if printed MRP has been altered, verify the Unit Sale Price (USP), and confirm product freshness.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.consumerPrimary.withValues(alpha: 0.85),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Consumer Telemetry (Price, USP, Expiry, 1915)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'MRP Overcharge',
+                        value: 'Zero Tolerance',
+                        subtitle: 'Illegal under Section 36',
+                        icon: Icons.price_check,
+                        color: AppColors.consumerPrimary,
+                        onTap: () => _showMrpGuideDialog(context),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Unit Sale Price',
+                        value: '₹ per 100g / ml',
+                        subtitle: 'Detect shrinkflation',
+                        icon: Icons.scale,
+                        color: AppColors.slate,
+                        onTap: () => _showUspGuideDialog(context),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Expiry Alert',
+                        value: 'Best Before',
+                        subtitle: 'Perishable freshness check',
+                        icon: Icons.event_available,
+                        color: AppColors.saffron,
+                        onTap: () => _showExpiryGuideDialog(context),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Helpline 1915',
+                        value: 'Toll-Free Desk',
+                        subtitle: 'Immediate dispute redressal',
+                        icon: Icons.support_agent,
+                        color: AppColors.navy,
+                        onTap: () => _show1915Dialog(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Consumer Hero Scanner CTA
+          _ConsumerHeroScannerCTA(onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CameraScreen()),
+            );
+          }),
+
+          // Consumer Action Desk
+          SectionHeader(
+            title: 'CONSUMER GRIEVANCE & ASSISTANCE DESK',
+            actionLabel: 'Call 1915',
+            onAction: () => _show1915Dialog(context),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                QuickActionTile(
+                  icon: Icons.phone_in_talk,
+                  color: AppColors.consumerPrimary,
+                  title: 'National Consumer Helpline (NCH 1915)',
+                  subtitle: 'Call toll-free 1915 or send SMS / WhatsApp to 8800001915 for immediate consumer dispute resolution.',
+                  badgeText: 'TOLL-FREE',
+                  badgeColor: AppColors.consumerPrimary,
+                  onTap: () => _show1915Dialog(context),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
+                  icon: Icons.language,
+                  color: AppColors.slate,
+                  title: 'Lodge Grievance on INGRAM Portal',
+                  subtitle: 'Register formal complaint online at consumerhelpline.gov.in and attach SatyaLabel scan evidence.',
+                  badgeText: 'ONLINE',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GrievanceSheet()),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
+                  icon: Icons.verified_user_outlined,
+                  color: AppColors.gold,
+                  title: '6 Mandatory Consumer Rights (2019 Act)',
+                  subtitle: 'Right to Safety, Right to Information, Right to Choice, Right to Redressal, and Right to Education.',
+                  onTap: () => _showConsumerRightsDialog(context),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
+                  icon: Icons.menu_book_outlined,
+                  color: AppColors.navy,
+                  title: 'Packaging Rules in Plain Language',
+                  subtitle: 'Essential checklist: what manufacturers must legally declare on packaged groceries and personal care goods.',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RulesSheet()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Recent Scans
+          SectionHeader(
+            title: 'YOUR VERIFIED PRODUCTS',
+            actionLabel: 'View All (${app.localScanIds.length})',
+            onAction: () => onNavigateTab(1),
+          ),
+          _RecentInspectionArchive(app: app),
+
+          const SizedBox(height: 20),
+          const _ConsumerRightsFooter(),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------- 2. CITIZEN AUDITOR DASHBOARD
+class _CitizenDashboardTabView extends StatelessWidget {
+  const _CitizenDashboardTabView({
+    required this.app,
+    required this.onNavigateTab,
+    required this.onEditBaseUrl,
+  });
+
+  final AppState app;
+  final void Function(int) onNavigateTab;
+  final VoidCallback onEditBaseUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: app.refreshConnectivity,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 96),
+        children: [
+          if (!app.backendReachable)
+            StatusBanner(
+              icon: Icons.cloud_off,
+              message: app.hasNetwork
+                  ? 'Server unreachable at ${app.api.baseUrl} — audits stored securely on disk'
+                  : 'No network detected — offline queue will store audits locally',
+              color: AppColors.saffron,
+              action: TextButton(onPressed: onEditBaseUrl, child: const Text('Change Endpoint')),
+            ),
+          if (app.queue.isNotEmpty)
+            StatusBanner(
+              icon: app.queue.syncing ? Icons.sync : Icons.cloud_queue,
+              message: app.queue.syncing
+                  ? 'Synchronizing ${app.queue.length} citizen audit records...'
+                  : '${app.queue.length} audit(s) waiting for crowdsource sync',
+              color: AppColors.citizenPrimary,
               action: TextButton(
-                onPressed: onEditBaseUrl,
-                child: const Text('Change Endpoint'),
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const QueueSheet()));
+                },
+                child: const Text('View Queue'),
               ),
+            ),
+
+          // Citizen Auditor Masthead
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.citizenBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.citizenBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.citizenPrimary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person, size: 11, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            'CITIZEN METROLOGY AUDITOR',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppColors.citizenBorder),
+                      ),
+                      child: const Text(
+                        'CROWDSOURCED VIGILANCE',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.citizenPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Community Market Vigilance',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.citizenPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Empower civic enforcement. Audit retail shelves, record photographic & GPS evidence of non-compliant labels, and generate tamper-evident PDF dossiers for consumer forums.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.slate,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Citizen Telemetry Grid
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Audits Logged',
+                        value: '${app.localScanIds.length}',
+                        subtitle: 'Local shelf audits',
+                        icon: Icons.fact_check_outlined,
+                        color: AppColors.citizenPrimary,
+                        onTap: () => onNavigateTab(1),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Offline Queue',
+                        value: '${app.queue.length}',
+                        subtitle: app.queue.isNotEmpty ? 'Pending server sync' : 'All audits synced',
+                        icon: Icons.cloud_queue_outlined,
+                        color: app.queue.isNotEmpty ? AppColors.saffron : AppColors.slate,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QueueSheet())),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Legal Standards',
+                        value: '8 Clauses',
+                        subtitle: 'Rule 6(1) declarations',
+                        icon: Icons.menu_book_outlined,
+                        color: AppColors.gold,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RulesSheet())),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DashboardStatCard(
+                        title: 'Helpline 1915',
+                        value: 'Active Desk',
+                        subtitle: 'e-Daakhil filing guide',
+                        icon: Icons.support_agent_outlined,
+                        color: AppColors.navy,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GrievanceSheet())),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Citizen Hero Scanner CTA
+          _CitizenHeroScannerCTA(onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CameraScreen()),
+            );
+          }),
+
+          // Citizen Enforcement Desk
+          SectionHeader(
+            title: 'CROWDSOURCED ENFORCEMENT DESK',
+            actionLabel: 'Standards',
+            onAction: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RulesSheet()),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                QuickActionTile(
+                  icon: Icons.picture_as_pdf_outlined,
+                  color: AppColors.citizenPrimary,
+                  title: 'Generate PDF Evidence Dossier',
+                  subtitle: 'Export tamper-evident reports with GPS coordinates, timestamps, and statutory citations for consumer disputes.',
+                  badgeText: 'SHA-256',
+                  badgeColor: AppColors.citizenPrimary,
+                  onTap: () => onNavigateTab(1),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
+                  icon: Icons.balance_outlined,
+                  color: AppColors.gold,
+                  title: 'e-Daakhil Online Consumer Court Submission',
+                  subtitle: 'Step-by-step guide to filing formal cases against deceptive packaging, dual pricing, and slack-fill at edaakhil.nic.in.',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GrievanceSheet()),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
+                  icon: Icons.forward_to_inbox_outlined,
+                  color: AppColors.slate,
+                  title: 'Notice to State Legal Metrology Controller',
+                  subtitle: 'Format standardized complaint letters to trigger district inspection raids under Section 15 of the LM Act.',
+                  onTap: () => _showStateControllerGuideDialog(context),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
+                  icon: Icons.menu_book_outlined,
+                  color: AppColors.navy,
+                  title: 'Search LM(PC) Rules 2011 Standards',
+                  subtitle: 'Full legal wording of mandatory declarations: manufacturer address, generic names, net weights, and font tables.',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RulesSheet()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Recent Audits
+          SectionHeader(
+            title: 'RECENT AUDIT EVIDENCE LOG',
+            actionLabel: 'View All (${app.localScanIds.length})',
+            onAction: () => onNavigateTab(1),
+          ),
+          _RecentInspectionArchive(app: app),
+
+          const SizedBox(height: 20),
+          const _DepartmentAdvisoryCard(),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------- 3. INSPECTOR DASHBOARD
+class _InspectorDashboardTabView extends StatelessWidget {
+  const _InspectorDashboardTabView({
+    required this.app,
+    required this.onNavigateTab,
+    required this.onEditBaseUrl,
+  });
+
+  final AppState app;
+  final void Function(int) onNavigateTab;
+  final VoidCallback onEditBaseUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: app.refreshConnectivity,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 96),
+        children: [
+          if (!app.backendReachable)
+            StatusBanner(
+              icon: Icons.cloud_off,
+              message: app.hasNetwork
+                  ? 'Server unreachable at ${app.api.baseUrl} — raids stored securely on disk'
+                  : 'No network detected — offline queue actively archiving raids',
+              color: AppColors.saffron,
+              action: TextButton(onPressed: onEditBaseUrl, child: const Text('Change Endpoint')),
             ),
           if (app.queue.isNotEmpty)
             StatusBanner(
@@ -440,16 +1206,56 @@ class _DashboardTabView extends StatelessWidget {
               color: AppColors.navy,
               action: TextButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const QueueSheet()),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const QueueSheet()));
                 },
                 child: const Text('View Queue'),
               ),
             ),
 
-          // Executive Hero Welcome Card
+          // Officer Access Warning if Not Logged In
+          if (!app.isInspector)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.goldLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.goldBorder),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.admin_panel_settings, color: AppColors.gold, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Inspector Mode Preview',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.gold),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Official credentials required to enable digital badge stamping & batch raid sessions.',
+                          style: TextStyle(fontSize: 11, color: AppColors.slate),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.navy,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    child: const Text('Officer Sign In', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            ),
+
+          // Executive Welcome Card
           _ExecutiveWelcomeCard(app: app),
 
           // 4-Stat Metric Cards with ZERO overlap
@@ -480,19 +1286,23 @@ class _DashboardTabView extends StatelessWidget {
                   icon: Icons.inventory_2_outlined,
                   color: AppColors.navy,
                   title: 'Inspector Batch Raid Session',
-                  subtitle:
-                      'Audit and link multiple suspect commodities under a single operational raid identifier.',
-                  badgeText: app.isInspector ? 'OFFICER' : null,
+                  subtitle: 'Audit and link multiple suspect commodities under a single operational raid identifier.',
+                  badgeText: app.isInspector ? 'OFFICER' : 'LOCKED',
                   badgeColor: AppColors.navy,
-                  onTap: () => onNavigateTab(2),
+                  onTap: () {
+                    if (app.isInspector) {
+                      onNavigateTab(2);
+                    } else {
+                      _showOfficerGateDialog(context);
+                    }
+                  },
                 ),
                 const SizedBox(height: 8),
                 QuickActionTile(
                   icon: Icons.map_outlined,
                   color: AppColors.slate,
-                  title: 'Violation Spatial Hotspots & Analytics',
-                  subtitle:
-                      'National PostGIS geo-binned violation heatmap, repeat offender registry & CSV export.',
+                  title: 'Violation Spatial Hotspots & Radar',
+                  subtitle: 'National PostGIS geo-binned violation heatmap, repeat offender registry & CSV export.',
                   badgeText: 'INTELLIGENCE',
                   badgeColor: AppColors.gold,
                   onTap: () => Navigator.push(
@@ -502,11 +1312,20 @@ class _DashboardTabView extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 QuickActionTile(
+                  icon: Icons.calculate_outlined,
+                  color: AppColors.gold,
+                  title: 'Section 36 & 48 Penalty Compounding Calculator',
+                  subtitle: 'Instant calculator for 1st offense (₹25k), 2nd offense (₹50k), and subsequent compounding limits.',
+                  badgeText: 'LEGAL ACT',
+                  badgeColor: AppColors.gold,
+                  onTap: () => _showCompoundingCalculatorDialog(context),
+                ),
+                const SizedBox(height: 8),
+                QuickActionTile(
                   icon: Icons.fact_check_outlined,
                   color: AppColors.indiaGreen,
                   title: 'Field Verification Protocol Checklist',
-                  subtitle:
-                      '8-point physical package audit: label adherence, dual pricing, PIN code & SI units.',
+                  subtitle: '8-point physical package audit: label adherence, dual pricing, PIN code & SI units.',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ChecklistSheet()),
@@ -517,8 +1336,7 @@ class _DashboardTabView extends StatelessWidget {
                   icon: Icons.gavel_outlined,
                   color: AppColors.gold,
                   title: 'LM(PC) Rules, 2011 Statutory Code',
-                  subtitle:
-                      'Searchable legal standards: Rule 6 declarations, font height tables, Section 36 penalties.',
+                  subtitle: 'Searchable legal standards: Rule 6 declarations, font height tables, Section 36 penalties.',
                   onTap: () => onNavigateTab(3),
                 ),
               ],
@@ -527,7 +1345,7 @@ class _DashboardTabView extends StatelessWidget {
 
           // Section 2: Consumer Protection & Offline Hub
           SectionHeader(
-            title: 'CONSUMER GRIEVANCES & SYNC HUB',
+            title: 'COMMAND TOOLS & OFFLINE HUB',
             actionLabel: 'Helpline 1915',
             onAction: () => Navigator.push(
               context,
@@ -575,31 +1393,7 @@ class _DashboardTabView extends StatelessWidget {
           ),
           _RecentInspectionArchive(app: app),
 
-          // Institutional Statutory Advisory Card
           const _DepartmentAdvisoryCard(),
-
-          const SizedBox(height: 24),
-          Center(
-            child: Column(
-              children: [
-                const StateEmblemMark(size: 24, color: AppColors.slateMuted),
-                const SizedBox(height: 6),
-                const Text(
-                  'Department of Consumer Affairs · Legal Metrology Division',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.slateMuted,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Ministry of Consumer Affairs, Food & Public Distribution · Government of India',
-                  style: TextStyle(fontSize: 9.5, color: AppColors.slateLight),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -915,6 +1709,521 @@ class _HeroScannerCTA extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ConsumerHeroScannerCTA extends StatelessWidget {
+  const _ConsumerHeroScannerCTA({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      decoration: BoxDecoration(
+        color: AppColors.consumerPrimary,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18065F46),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'INSTANT SHOPPER VERIFIER',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Check Price & Expiry Now',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Point camera at product label or price sticker to verify MRP limits & Best Before date.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 11.5,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CitizenHeroScannerCTA extends StatelessWidget {
+  const _CitizenHeroScannerCTA({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      decoration: BoxDecoration(
+        color: AppColors.citizenPrimary,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x181E40AF),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: const Icon(Icons.document_scanner, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'GPS EVIDENCE STAMP ACTIVE',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Audit Package & Record Evidence',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Captures full 8-clause Legal Metrology declarations, GPS location & SHA-256 evidence hash.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 11.5,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConsumerRightsFooter extends StatelessWidget {
+  const _ConsumerRightsFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.consumerBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.consumerBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.shield, color: AppColors.consumerPrimary, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Consumer Protection Act, 2019 Guarantee',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: AppColors.consumerPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Every consumer has the statutory right to be informed about the quality, quantity, potency, purity, standard and price of goods to protect against unfair trade practices.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.consumerPrimary.withValues(alpha: 0.9),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------- STATUTORY & ROLE DIALOGS
+void _show1915Dialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.consumerPrimary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.phone_in_talk, color: AppColors.consumerPrimary, size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Text('National Consumer Helpline', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'The Department of Consumer Affairs operates the National Consumer Helpline for speedy grievance redressal:',
+            style: TextStyle(fontSize: 12, color: AppColors.slate, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.consumerBg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.consumerBorder),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('📞 Toll-Free Helpline: 1915', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.consumerPrimary)),
+                SizedBox(height: 4),
+                Text('💬 SMS / WhatsApp: 8800001915', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.slate)),
+                SizedBox(height: 4),
+                Text('🌐 Web Portal: consumerhelpline.gov.in', style: TextStyle(fontSize: 11.5, color: AppColors.slateMuted)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Keep your SatyaLabel scan ID or PDF report ready when lodging a complaint.',
+            style: TextStyle(fontSize: 11, color: AppColors.slateMuted),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+      ],
+    ),
+  );
+}
+
+void _showConsumerRightsDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('6 Mandatory Consumer Rights', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      content: const SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _RightBullet(title: '1. Right to Safety', desc: 'Protection against goods hazardous to life and property.'),
+            _RightBullet(title: '2. Right to Information', desc: 'Mandatory declaration of MRP, Net Weight, and Expiry date.'),
+            _RightBullet(title: '3. Right to Choose', desc: 'Access to competitive variety without coercive dual pricing.'),
+            _RightBullet(title: '4. Right to be Heard', desc: 'Consumer interests receive due consideration in appropriate forums.'),
+            _RightBullet(title: '5. Right to Redressal', desc: 'Relief against unfair trade practices and restrictive trade practices.'),
+            _RightBullet(title: '6. Right to Consumer Education', desc: 'Awareness campaigns under Jago Grahak Jago.'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Understood')),
+      ],
+    ),
+  );
+}
+
+class _RightBullet extends StatelessWidget {
+  const _RightBullet({required this.title, required this.desc});
+  final String title;
+  final String desc;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.navy)),
+          const SizedBox(height: 1),
+          Text(desc, style: const TextStyle(fontSize: 11, color: AppColors.slateMuted)),
+        ],
+      ),
+    );
+  }
+}
+
+void _showMrpGuideDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('MRP & Overcharging Laws', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      content: const Text(
+        'Under Rule 6(1)(e) of the Legal Metrology (Packaged Commodities) Rules, 2011:\n\n'
+        '• No retailer can sell a packaged commodity at a price higher than the Maximum Retail Price (MRP).\n'
+        '• The MRP must state "inclusive of all taxes".\n'
+        '• Dual MRP stickers or pasting higher price stickers over manufacturer prints is punishable with fine up to ₹50,000 under Section 36.',
+        style: TextStyle(fontSize: 12, color: AppColors.slate, height: 1.4),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Dismiss'))],
+    ),
+  );
+}
+
+void _showUspGuideDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('Unit Sale Price (USP)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      content: const Text(
+        'Under Rule 6(1)(da) (enforced Dec 2022):\n\n'
+        '• Every package greater than 1 kg or 1 L must declare the unit price (₹ per g or ₹ per ml) rounded to two decimal places.\n'
+        '• Packages sold by number must declare ₹ per item.\n'
+        '• This allows consumers to compare different size variants and identify deceptive shrinkflation.',
+        style: TextStyle(fontSize: 12, color: AppColors.slate, height: 1.4),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Dismiss'))],
+    ),
+  );
+}
+
+void _showExpiryGuideDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('Expiry & Best Before Rules', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      content: const Text(
+        'Under Rule 6(1)(g) of the LM(PC) Rules, 2011:\n\n'
+        '• For all perishable commodities that may deteriorate, the "Best Before" or "Use By" date must be declared.\n'
+        '• Selling expired packaged commodities is a critical offense that triggers immediate product seizure under Section 15 of the LM Act.',
+        style: TextStyle(fontSize: 12, color: AppColors.slate, height: 1.4),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Dismiss'))],
+    ),
+  );
+}
+
+void _showCompoundingCalculatorDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Row(
+        children: [
+          Icon(Icons.calculate, color: AppColors.gold, size: 20),
+          SizedBox(width: 8),
+          Text('Section 36 & 48 Calculator', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Statutory Penalties under Section 36(1):', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.navy)),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• First Offence: Fine up to ₹25,000', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                SizedBox(height: 3),
+                Text('• Second Offence: Fine up to ₹50,000', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.orange)),
+                SizedBox(height: 3),
+                Text('• Subsequent Offences: Fine up to ₹1,00,000 or imprisonment up to 1 year', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.nonCompliant)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text('Section 48 Compounding Provisions:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.navy)),
+          const SizedBox(height: 4),
+          const Text('Authorised Controller or Inspector may compound offences before or after prosecution proceedings upon payment of compounding sum.', style: TextStyle(fontSize: 11, color: AppColors.slateMuted, height: 1.3)),
+        ],
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+    ),
+  );
+}
+
+void _showStateControllerGuideDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('Report to State Controller', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      content: const Text(
+        'To submit a citizen violation report to your State Legal Metrology Controller:\n\n'
+        '1. Scan suspect product with SatyaLabel camera.\n'
+        '2. Tap "Download PDF Evidence Dossier".\n'
+        '3. Email the dossier along with store GPS location to the Controller of Legal Metrology in your state.\n'
+        '4. The Inspector of the jurisdiction will conduct an inspection raid under Section 15.',
+        style: TextStyle(fontSize: 12, color: AppColors.slate, height: 1.4),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Understood'))],
+    ),
+  );
+}
+
+void _showOfficerGateDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Row(
+        children: [
+          Icon(Icons.admin_panel_settings, color: AppColors.navy, size: 22),
+          SizedBox(width: 8),
+          Text('Officer Credentials Required', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+        ],
+      ),
+      content: const Text(
+        'Batch Raid Sessions and digital seizure certificates require an authorized Legal Metrology Inspector badge.\n\n'
+        'Please sign in with your official officer account provisioned by the department administrator.',
+        style: TextStyle(fontSize: 12, color: AppColors.slate, height: 1.35),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+          },
+          child: const Text('Sign In as Officer'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RecentInspectionArchive extends StatelessWidget {
@@ -1250,20 +2559,108 @@ class _AppDrawer extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: switch (app.activePersona) {
+                      AppPersona.consumer => AppColors.consumerAccent.withValues(alpha: 0.35),
+                      AppPersona.citizen => AppColors.citizenAccent.withValues(alpha: 0.35),
+                      AppPersona.inspector => AppColors.inspectorAccent.withValues(alpha: 0.35),
+                    },
                     borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    app.isLoggedIn
-                        ? 'ROLE: ${user?.role.toUpperCase() ?? 'INSPECTOR'}'
-                        : 'CITIZEN VERIFICATION MODE',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
+                    border: Border.all(
+                      color: switch (app.activePersona) {
+                        AppPersona.consumer => AppColors.consumerBorder.withValues(alpha: 0.5),
+                        AppPersona.citizen => AppColors.citizenBorder.withValues(alpha: 0.5),
+                        AppPersona.inspector => AppColors.goldBorder.withValues(alpha: 0.5),
+                      },
                     ),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        switch (app.activePersona) {
+                          AppPersona.consumer => Icons.verified_user,
+                          AppPersona.citizen => Icons.groups_2,
+                          AppPersona.inspector => Icons.admin_panel_settings,
+                        },
+                        size: 11,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        switch (app.activePersona) {
+                          AppPersona.consumer => 'CONSUMER / SHOPPER MODE',
+                          AppPersona.citizen => 'CITIZEN AUDITOR MODE',
+                          AppPersona.inspector => app.isLoggedIn
+                              ? 'OFFICIAL: ${user?.role.toUpperCase() ?? 'INSPECTOR'}'
+                              : 'INSPECTOR COMMAND (OFFICER)',
+                        },
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'SWITCH PERSPECTIVE',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: AppColors.slateMuted,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _DrawerPersonaPill(
+                      label: 'Consumer',
+                      icon: Icons.verified_user_outlined,
+                      isActive: app.activePersona == AppPersona.consumer,
+                      activeColor: AppColors.consumerPrimary,
+                      activeBg: AppColors.consumerBg,
+                      onTap: () {
+                        app.setActivePersona(AppPersona.consumer);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _DrawerPersonaPill(
+                      label: 'Citizen',
+                      icon: Icons.groups_2_outlined,
+                      isActive: app.activePersona == AppPersona.citizen,
+                      activeColor: AppColors.citizenPrimary,
+                      activeBg: AppColors.citizenBg,
+                      onTap: () {
+                        app.setActivePersona(AppPersona.citizen);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    _DrawerPersonaPill(
+                      label: 'Inspector',
+                      icon: Icons.shield_outlined,
+                      isActive: app.activePersona == AppPersona.inspector,
+                      activeColor: AppColors.inspectorPrimary,
+                      activeBg: AppColors.inspectorBg,
+                      onTap: () {
+                        app.setActivePersona(AppPersona.inspector);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1424,7 +2821,9 @@ class _AppDrawer extends StatelessWidget {
                     size: 20,
                   ),
                   title: Text(
-                    app.isLoggedIn ? 'Log Out of Officer Session' : 'Inspector Login',
+                    app.isLoggedIn
+                        ? 'Log Out (${user?.displayName ?? user?.role.toUpperCase()})'
+                        : 'Officer / Citizen Portal Login',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -1444,3 +2843,64 @@ class _AppDrawer extends StatelessWidget {
     );
   }
 }
+
+class _DrawerPersonaPill extends StatelessWidget {
+  const _DrawerPersonaPill({
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.activeColor,
+    required this.activeBg,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isActive;
+  final Color activeColor;
+  final Color activeBg;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: isActive ? activeBg : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: isActive ? activeColor : Colors.grey.shade300,
+            width: isActive ? 1.5 : 1,
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isActive ? activeColor : AppColors.slateMuted,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: isActive ? activeColor : AppColors.slate,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

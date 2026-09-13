@@ -35,6 +35,25 @@ class AppColors {
   static const needsVerify = Color(0xFF92400E);
   static const needsVerifyBg = Color(0xFFFFFBEB);
   static const needsVerifyBorder = Color(0xFFFDE68A);
+
+  // Persona Distinct Colors
+  // 1. Consumer (Shopper Protection / Emerald & Forest Green)
+  static const consumerPrimary = Color(0xFF065F46);
+  static const consumerBg = Color(0xFFECFDF5);
+  static const consumerBorder = Color(0xFFA7F3D0);
+  static const consumerAccent = Color(0xFF059669);
+
+  // 2. Citizen (Civic Vigilance / Cobalt & Indigo)
+  static const citizenPrimary = Color(0xFF1E40AF);
+  static const citizenBg = Color(0xFFEFF6FF);
+  static const citizenBorder = Color(0xFFBFDBFE);
+  static const citizenAccent = Color(0xFF2563EB);
+
+  // 3. Inspector (Executive Statutory Command / Deep Navy & Gold)
+  static const inspectorPrimary = Color(0xFF0B2545);
+  static const inspectorBg = Color(0xFFF8FAFC);
+  static const inspectorBorder = Color(0xFFE2E8F0);
+  static const inspectorAccent = Color(0xFFB45309);
 }
 
 class AppTheme {

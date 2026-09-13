@@ -14,6 +14,12 @@ import '../core/session_store.dart';
 import '../models/auth_models.dart';
 import '../services/offline_queue.dart';
 
+enum AppPersona {
+  consumer,
+  citizen,
+  inspector,
+}
+
 class AppState extends ChangeNotifier {
   AppState._(this.store, this.queue, this._connectivity);
 
@@ -46,6 +52,15 @@ class AppState extends ChangeNotifier {
   bool get isLoggedIn => token != null;
   bool get isInspector => user?.isInspector ?? false;
 
+  AppPersona _activePersona = AppPersona.consumer;
+  AppPersona get activePersona => _activePersona;
+
+  void setActivePersona(AppPersona persona) {
+    if (_activePersona == persona) return;
+    _activePersona = persona;
+    notifyListeners();
+  }
+
   /// Last known network interface state (wifi/cellular/none).
   bool hasNetwork = true;
 
@@ -56,6 +71,13 @@ class AppState extends ChangeNotifier {
   Timer? _healthPoll;
 
   void _init() {
+    if (user?.isInspector == true) {
+      _activePersona = AppPersona.inspector;
+    } else if (user != null) {
+      _activePersona = AppPersona.citizen;
+    } else {
+      _activePersona = AppPersona.consumer;
+    }
     _connectivitySub = _connectivity.onConnectivityChanged.listen((results) {
       hasNetwork = !results.contains(ConnectivityResult.none);
       notifyListeners();
@@ -97,6 +119,7 @@ class AppState extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     final auth = await api.login(email, password);
     await store.saveAuth(auth);
+    _activePersona = auth.user.isInspector ? AppPersona.inspector : AppPersona.citizen;
     notifyListeners();
   }
 
@@ -106,6 +129,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> logout() async {
     await store.clearAuth();
+    _activePersona = AppPersona.consumer;
     notifyListeners();
   }
 

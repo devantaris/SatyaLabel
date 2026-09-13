@@ -33,9 +33,9 @@ logger = logging.getLogger(__name__)
 # ── Regex Pattern Library ─────────────────────────────────────────────────────
 
 # MRP — "MRP Rs. 50", "M.R.P: ₹50.00", "MRP ₹ 50/-", "Rs 50", "₹50",
-# "MRP: 40.00" (ML Kit often drops/mangles the ₹ symbol from the latin
-# model, so the MRP-prefixed pattern must also match with NO currency
-# marker at all).
+# "MRP: 40.00" (currency symbol missing), and mangled rupee symbols that
+# OCR engines emit for ₹: "#", "~", "*", "R$" or a bare "R" glued to the
+# digits ("MRP:R50.00" — seen on real DOMS/Faber-Castell labels).
 # The lookaheads reject false positives like Legal Metrology licence
 # numbers ("R-113/9" OCR'd as "Rs.1.13/9" — value followed by /digit).
 # Captures must start with a digit — otherwise "Rs," (misread "Rs.")
@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 _MRP_PATTERNS = [
     re.compile(
         r"(?:M\.?R\.?P\.?|Maximum\s+Retail\s+Price)\s*[:\-]?\s*"
-        r"(?:Rs\.?|₹|INR|R\$)?[.,*]?\s*(\d[\d,]*+(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
+        r"(?:Rs\.?|₹|INR|R\$|R(?=\d))?[^\w\s]?\s*"
+        r"(\d[\d,]*+(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
         re.IGNORECASE,
     ),
     re.compile(
@@ -52,15 +53,18 @@ _MRP_PATTERNS = [
     ),
 ]
 
-# Net Quantity — "Net Qty: 500g", "Net Wt. 1 kg", "NET CONTENT 500 ml", "Qty: 12 nos"
+# Net Quantity — "Net Qty: 500g", "Net Wt. 1 kg", "NET CONTENT 500 ml",
+# "Qty: 12 nos", "NET QUANTITY: 1 Set" (multi-item packs declare sets)
 _NET_QTY_PATTERNS = [
     re.compile(
         r"(?:(?:Net\s*)?(?:Qty|Quantity|Wt\.?|Weight|Content|Vol\.?|Volume))\s*[:\-]?\s*"
-        r"([\d.,]+\s*(?:kg|g|gm|gms|gram|grams|mg|ml|mL|L|ltr|litre|litres|nos?|pcs?|pieces?))",
+        r"([\d.,]+\s*(?:kg|g|gm|gms|gram|grams|mg|ml|mL|L|ltr|litre|litres|nos?|pcs?|pieces?|sets?))",
         re.IGNORECASE,
     ),
+    # Bare "500g" — must not be preceded by a letter/digit/hyphen, else
+    # addresses like "J-19.G.I.D.C" match as "19.G"
     re.compile(
-        r"([\d.,]+\s*(?:kg|g|gm|gms|ml|mL|L|ltr|nos?|pcs?|pieces?)\b)",
+        r"(?<![\w\-])([\d.,]+\s*(?:kg|g|gm|gms|ml|mL|L|ltr|nos?|pcs?|pieces?|sets?)\b)",
         re.IGNORECASE,
     ),
 ]

@@ -69,8 +69,17 @@ class TestVerdicts:
         report = engine.run(compliant_fields)
         assert report.verdict == Verdict.NON_COMPLIANT
 
-    def test_missing_consumer_phone_is_non_compliant(self, engine, compliant_fields):
+    def test_missing_phone_with_email_present_is_needs_verification(self, engine, compliant_fields):
+        # Phone often unreadable (tiny print) while email is present —
+        # a single contact channel satisfies consumer care.
         compliant_fields.consumer_phone = _field("consumer_phone", None, 0.0)
+        report = engine.run(compliant_fields)
+        assert report.verdict == Verdict.NEEDS_VERIFICATION
+        assert all(v.severity == Severity.WARNING for v in report.violations)
+
+    def test_no_consumer_care_at_all_is_non_compliant(self, engine, compliant_fields):
+        compliant_fields.consumer_phone = _field("consumer_phone", None, 0.0)
+        compliant_fields.consumer_email = _field("consumer_email", None, 0.0)
         report = engine.run(compliant_fields)
         assert report.verdict == Verdict.NON_COMPLIANT
 
@@ -169,9 +178,16 @@ class TestConsumerCare:
         violations = engine.check_consumer_care(phone, email)
         assert violations == []
 
-    def test_missing_phone_is_critical(self, engine):
+    def test_missing_phone_with_email_is_warning_only(self, engine):
         phone = _field("consumer_phone", None, 0.0)
         email = _field("consumer_email", "care@brand.com")
+        violations = engine.check_consumer_care(phone, email)
+        # Email present → phone missing is a warning, not critical
+        assert all(v.severity == Severity.WARNING for v in violations)
+
+    def test_missing_phone_and_email_is_critical(self, engine):
+        phone = _field("consumer_phone", None, 0.0)
+        email = _field("consumer_email", None, 0.0)
         violations = engine.check_consumer_care(phone, email)
         assert any(v.severity == Severity.CRITICAL for v in violations)
 

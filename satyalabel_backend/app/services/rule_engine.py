@@ -395,14 +395,35 @@ class RuleEngine:
     def check_consumer_care(
         self, phone: ExtractedField, email: ExtractedField
     ) -> list[Violation]:
-        """Rule 6(1)(k): Consumer care name, address, phone, email required."""
-        violations = []
+        """
+        Rule 6(1)(k): Consumer care details required.
+
+        Phone and email are typically printed in very small type on the
+        back/side of labels — OCR frequently misses them even on perfectly
+        compliant labels. So a single contact channel (phone OR email)
+        satisfies the check with a warning for the other; only when
+        NEITHER is detected is it treated as a genuine violation.
+        """
+        violations: list[Violation] = []
+
+        if not phone.is_found and not email.is_found:
+            return [Violation(
+                field_name="consumer_care",
+                severity=Severity.CRITICAL,
+                message="MISSING: No Consumer Care contact details (phone or "
+                        "email) found on the label. Required per Rule 6(1)(k).",
+                rule_reference="Rule 6(1)(k), LM(PC) Rules 2011",
+                extracted_value=None,
+                confidence=0.0,
+            )]
+
         if not phone.is_found:
             violations.append(Violation(
                 field_name="consumer_phone",
-                severity=Severity.CRITICAL,
-                message="MISSING: Consumer Care phone number not found. "
-                        "A contact number must be declared per Rule 6(1)(k).",
+                severity=Severity.WARNING,
+                message="Consumer Care phone not detected, but an email contact "
+                        "is present. Verify the label manually — phone numbers "
+                        "are often printed in very small type.",
                 rule_reference="Rule 6(1)(k), LM(PC) Rules 2011",
                 extracted_value=None,
                 confidence=0.0,

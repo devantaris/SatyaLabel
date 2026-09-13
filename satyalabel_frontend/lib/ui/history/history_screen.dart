@@ -22,6 +22,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _ids = context.read<AppState>().localScanIds;
+    if (_ids != null && _ids!.isEmpty) {
+      // Fresh install / cleared data — fall back to the server's recent
+      // scans so history isn't lost across reinstalls.
+      _fetchFromServer();
+    }
+  }
+
+  Future<void> _fetchFromServer() async {
+    try {
+      final list = await context.read<AppState>().api.listScans(limit: 50);
+      if (!mounted || _ids == null || _ids!.isNotEmpty) return;
+      setState(() {
+        _ids = list.items.map((s) => s.scanId).toList();
+      });
+    } catch (_) {
+      // offline / server asleep — keep the empty state
+    }
   }
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:satyalabel_frontend/models/scan_models.dart';
+import 'package:satyalabel_frontend/ui/checklist/checklist_sheet.dart';
+import 'package:satyalabel_frontend/ui/rules/rules_sheet.dart';
 import 'package:satyalabel_frontend/ui/widgets.dart';
 
 ScanResult _result(Verdict verdict, {String? summary}) => ScanResult(
@@ -64,4 +66,96 @@ void main() {
     await tester.tap(find.text('Retry'));
     expect(tapped, isTrue);
   });
+
+  testWidgets('DashboardStatCard renders title, value, subtitle and handles tap',
+      (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(wrap(
+      DashboardStatCard(
+        title: 'Total Scans',
+        value: '42',
+        subtitle: 'On this device',
+        icon: Icons.history,
+        color: Colors.teal,
+        onTap: () => tapped = true,
+      ),
+    ));
+
+    expect(find.text('Total Scans'), findsOneWidget);
+    expect(find.text('42'), findsOneWidget);
+    expect(find.text('On this device'), findsOneWidget);
+    expect(find.byIcon(Icons.history), findsOneWidget);
+
+    await tester.tap(find.text('Total Scans'));
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('QuickActionTile renders title, subtitle, badge and handles tap',
+      (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(wrap(
+      QuickActionTile(
+        title: 'Batch Raid Sessions',
+        subtitle: 'Scan multiple products under one session',
+        badgeText: 'OFFICER',
+        badgeColor: Colors.indigo,
+        icon: Icons.inventory_2,
+        color: Colors.indigo,
+        onTap: () => tapped = true,
+      ),
+    ));
+
+    expect(find.text('Batch Raid Sessions'), findsOneWidget);
+    expect(find.text('Scan multiple products under one session'), findsOneWidget);
+    expect(find.text('OFFICER'), findsOneWidget);
+    expect(find.byIcon(Icons.inventory_2), findsOneWidget);
+
+    await tester.tap(find.text('Batch Raid Sessions'));
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('SectionHeader renders title and action label', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(wrap(
+      SectionHeader(
+        title: 'TEST SECTION',
+        actionLabel: 'View More',
+        onAction: () => tapped = true,
+      ),
+    ));
+
+    expect(find.text('TEST SECTION'), findsOneWidget);
+    expect(find.text('View More'), findsOneWidget);
+
+    await tester.tap(find.text('View More'));
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('ChecklistSheet displays verification items and updates progress',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ChecklistSheet()));
+    expect(find.text('Field Inspection Checklist'), findsOneWidget);
+    expect(find.text('0 of 8 items verified'), findsOneWidget);
+
+    // Tap first checkbox
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pump();
+
+    expect(find.text('1 of 8 items verified'), findsOneWidget);
+  });
+
+  testWidgets('RulesSheet renders standards and supports searching',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: RulesSheet()));
+    expect(find.text('LM(PC) Rules 2011 Standards'), findsOneWidget);
+    expect(find.text('Rule 6(1)(a)'), findsOneWidget);
+
+    // Filter by search query
+    await tester.enterText(find.byType(TextField), 'MRP');
+    await tester.pump();
+
+    expect(find.text('Rule 6(1)(e)'), findsOneWidget);
+  });
 }
+
+

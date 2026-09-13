@@ -57,6 +57,7 @@ class ScanPipeline:
         image_bytes: bytes,
         scan_id: str | None = None,
         client_ocr_text: str | None = None,
+        client_ocr_lines: list[dict] | None = None,
     ) -> ScanPipelineResult:
         """
         Run the full pipeline on raw image bytes.
@@ -67,6 +68,9 @@ class ScanPipeline:
             client_ocr_text: OCR text produced on the client device (Google
                 ML Kit). When supplied, server-side OCR is skipped and the
                 text goes straight to field extraction + rule engine.
+            client_ocr_lines: Structured ML Kit output (text + bbox per
+                line). Preferred over client_ocr_text — bounding boxes let
+                the extractor reassemble misaligned key/value blocks.
 
         Returns:
             ScanPipelineResult with all intermediate and final results.
@@ -81,7 +85,9 @@ class ScanPipeline:
         logger.debug("Pre-processing done scan_id=%s skew=%.2f", scan_id, prep.skew_angle)
 
         # Step 2: OCR (server engines, or client-provided ML Kit text)
-        if client_ocr_text:
+        if client_ocr_lines:
+            ocr_result = OcrResult.from_client_lines(client_ocr_lines)
+        elif client_ocr_text:
             ocr_result = OcrResult.from_client_text(client_ocr_text)
         else:
             ocr_result = get_ocr_service().run(prep)
@@ -117,6 +123,9 @@ def run_scan_pipeline(
     image_bytes: bytes,
     scan_id: str | None = None,
     client_ocr_text: str | None = None,
+    client_ocr_lines: list[dict] | None = None,
 ) -> ScanPipelineResult:
     """Module-level convenience function."""
-    return _pipeline.run(image_bytes, scan_id, client_ocr_text=client_ocr_text)
+    return _pipeline.run(image_bytes, scan_id,
+                         client_ocr_text=client_ocr_text,
+                         client_ocr_lines=client_ocr_lines)

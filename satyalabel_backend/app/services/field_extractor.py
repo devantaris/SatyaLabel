@@ -206,6 +206,134 @@ class ExtractedFields:
 
 
 # ── Field Extractor ───────────────────────────────────────────────────────────
+# ── Misaligned key/value reassembly ───────────────────────────────────────────
+# Labels sometimes print keys and values in separate, non-aligned blocks:
+#   "MRP  Mfg Date  Best Before"     ← key row
+#   "40.00  05/2026  10/2026"        ← value row (printed later / offset)
+# or stack them vertically:
+#   "MRP"
+#   "₹ 40.00"
+# OCR reads these as unassociated lines, so every extractor misses. The
+# helpers below glue key lines to their value lines — geometrically via
+# bounding boxes when available (ML Kit / RapidOCR), by adjacency otherwise.
+
+_KEY_LINE_RE = re.compile(
+    r"^(?:m\.?\s*r\.?\s*p\.?|maximum\s+retail\s+price|u\.?\s*s\.?\s*p\.?|"
+    r"unit\s+sale\s+price|net\s+(?:qty|quantity|wt\.?|weight|content|vol\.?|volume)|"
+    r"(?:mfg|mfd)\.?\s*date?|(?:mfg|mfd)|date\s+of\s+(?:mfg|manufactur\w+)|"
+    r"month\s+of\s+(?:mfg|manufactur\w+)|best\s+before(?:\s+date)?|use\s+by|"
+    r"exp(?:iry)?(?:\s+date)?|batch(?:\s*(?:no\.?|number))?|lot(?:\s*(?:no\.?|number))?|"
+    r"consumer\s+care|country\s+of\s+origin|origin|generic\s+name|packed\s+on"
+    r")\s*[:.\-–]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_key_only(text: str) -> bool:
+    """A line that holds ONLY a declaration key (no value attached)."""
+    t = text.strip()
+    return bool(_KEY_LINE_RE.match(t)) and not re.search(r"\d", t)
+
+
+def _has_value(text: str) -> bool:
+    return bool(re.search(r"\d", text))
+
+
+def _merge_line(a: OcrLine, b: OcrLine) -> OcrLine:
+    """Glue two lines into one, spanning both bounding boxes."""
+    ax, ay, aw, ah = a.bbox
+    bx, by, bw, bh = b.bbox
+    x0, y0 = min(ax, bx), min(ay, by)
+    x1, y1 = max(ax + aw, bx + bw), max(ay + ah, by + bh)
+    return OcrLine(
+        text=f"{a.text.strip()} {b.text.strip()}",
+        confidence=min(a.confidence, b.confidence),
+        bbox=(x0, y0, x1 - x0, y1 - y0),
+        engine=a.engine,
+    )
+
+
+def _group_rows(lines: list[OcrLine]) -> list[list[OcrLine]]:
+    """Group lines into visual rows by vertical-center proximity."""
+    rows: list[list[OcrLine]] = []
+    for ln in sorted(lines, key=lambda ln: (ln.bbox[1] + ln.bbox[3] / 2, ln.bbox[0])):
+        cy = ln.bbox[1] + ln.bbox[3] / 2
+        h = max(ln.bbox[3], 1)
+        if rows:
+            row_cy = sum(r.bbox[1] + r.bbox[3] / 2 for r in rows[-1]) / len(rows[-1])
+            if abs(cy - row_cy) <= 0.6 * h:
+                rows[-1].append(ln)
+                continue
+        rows.append([ln])
+    return [sorted(r, key=lambda ln: ln.bbox[0]) for r in rows]
+
+
+def _has_geometry(lines: list[OcrLine]) -> bool:
+    return any(ln.bbox[2] > 0 for ln in lines)
+
+
+def reassemble_misaligned(lines: list[OcrLine]) -> list[OcrLine]:
+    """
+    Glue key-only lines to their value lines so per-line extractors work.
+    Handles vertical stacking and columnar (row-of-keys + row-of-values)
+    layouts. Lines are returned in original order when nothing matches.
+    """
+    if not lines:
+        return lines
+
+    if not _has_geometry(lines):
+        # Text-only: join a key-only line with the value line that follows.
+        out: list[OcrLine] = []
+        i = 0
+        while i < len(lines):
+            cur, nxt = lines[i], lines[i + 1] if i + 1 < len(lines) else None
+            if (nxt is not None and _is_key_only(cur.text)
+                    and _has_value(nxt.text) and not _is_key_only(nxt.text)):
+                out.append(_merge_line(cur, nxt))
+                i += 2
+            else:
+                out.append(cur)
+                i += 1
+        return out
+
+    # Geometric: pair a row made entirely of keys with the value row below it,
+    # matching each key to the nearest value by horizontal position.
+    rows = _group_rows(lines)
+    out: list[OcrLine] = []
+    consumed: set[int] = set()
+    for ri, row in enumerate(rows):
+        if ri in consumed:
+            continue
+        next_row = rows[ri + 1] if ri + 1 < len(rows) else None
+        keys = [ln for ln in row if _is_key_only(ln.text)]
+        if (next_row is not None and keys and len(keys) == len(row)
+                and all(not _has_value(ln.text) for ln in row)
+                and not any(_is_key_only(ln.text) for ln in next_row)):
+            values = [ln for ln in next_row if _has_value(ln.text)]
+            used: set[int] = set()
+            for k in keys:
+                kcx = k.bbox[0] + k.bbox[2] / 2
+                best_j, best_d = None, None
+                for j, v in enumerate(values):
+                    if j in used:
+                        continue
+                    d = abs((v.bbox[0] + v.bbox[2] / 2) - kcx)
+                    if best_d is None or d < best_d:
+                        best_j, best_d = j, d
+                if best_j is not None:
+                    used.add(best_j)
+                    out.append(_merge_line(k, values[best_j]))
+                else:
+                    out.append(k)
+            # pass through any next-row content that was not consumed
+            out.extend(v for j, v in enumerate(values) if j not in used)
+            out.extend(ln for ln in next_row if not _has_value(ln.text))
+            consumed.add(ri + 1)
+            continue
+        out.extend(row)
+    return out
+
+
 class FieldExtractor:
     """
     Extracts mandatory label fields from OCR output.
@@ -226,7 +354,11 @@ class FieldExtractor:
             ExtractedFields dataclass with all 10 field slots populated.
         """
         text = ocr_result.raw_text
-        lines = ocr_result.lines
+        lines = reassemble_misaligned(ocr_result.lines)
+        if len(lines) != len(ocr_result.lines):
+            # Reassembly glued some lines — rebuild the raw text so the
+            # full-text fallback pass sees the same associations.
+            text = "\n".join(ln.text for ln in lines)
 
         return ExtractedFields(
             mrp=self._extract_mrp(text, lines),

@@ -83,6 +83,31 @@ class OcrResult:
             needs_manual_review=False,
         )
 
+    @classmethod
+    def from_client_lines(cls, rows: list[dict]) -> OcrResult:
+        """Build an OcrResult from structured ML Kit output: one dict per
+        recognised line with text + bounding box ({text, x, y, w, h}).
+        Bounding boxes let the field extractor reassemble misaligned
+        key/value blocks geometrically."""
+        lines = [
+            OcrLine(
+                text=str(r["text"]).strip(),
+                confidence=0.9,
+                bbox=(int(r.get("x", 0)), int(r.get("y", 0)),
+                      int(r.get("w", 0)), int(r.get("h", 0))),
+                engine="mlkit",
+            )
+            for r in rows
+            if str(r.get("text", "")).strip()
+        ]
+        return cls(
+            raw_text="\n".join(ln.text for ln in lines),
+            lines=lines,
+            engine_used="mlkit",
+            mean_confidence=0.9 if lines else 0.0,
+            needs_manual_review=False,
+        )
+
     @property
     def high_confidence_lines(self) -> list[OcrLine]:
         """Lines with confidence above the threshold."""

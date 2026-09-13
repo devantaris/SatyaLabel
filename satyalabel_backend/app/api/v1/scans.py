@@ -8,6 +8,7 @@ GET  /api/v1/scans/          — List scans (paginated, filterable)
 """
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -38,6 +39,7 @@ router = APIRouter()
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
 MAX_BYTES = settings.MAX_IMAGE_SIZE_MB * 1024 * 1024
 MAX_CLIENT_OCR_CHARS = 20_000
+MAX_CLIENT_OCR_LINES = 500
 
 
 def _clean_client_ocr_text(text: str | None) -> str | None:
@@ -54,6 +56,57 @@ def _clean_client_ocr_text(text: str | None) -> str | None:
                    f"Maximum: {MAX_CLIENT_OCR_CHARS}.",
         )
     return text
+
+
+def _parse_client_ocr_lines(raw: str | None) -> list[dict] | None:
+    """Parse the client_ocr_lines form field: a JSON array of ML Kit lines
+    [{text, x, y, w, h}]. Returns None when absent/empty → server OCR runs."""
+    if raw is None or not raw.strip():
+        return None
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="client_ocr_lines must be a JSON array.",
+        )
+    if not isinstance(data, list):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="client_ocr_lines must be a JSON array.",
+        )
+    if len(data) > MAX_CLIENT_OCR_LINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"client_ocr_lines too long ({len(data)} lines). "
+                   f"Maximum: {MAX_CLIENT_OCR_LINES}.",
+        )
+    rows: list[dict] = []
+    total_chars = 0
+    for e in data:
+        if not isinstance(e, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Each client_ocr_lines entry must be an object.",
+            )
+        text = str(e.get("text", "")).strip()
+        if not text:
+            continue
+        total_chars += len(text)
+        if total_chars > MAX_CLIENT_OCR_CHARS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"client_ocr_lines text exceeds {MAX_CLIENT_OCR_CHARS} chars.",
+            )
+        try:
+            x, y, w, h = (float(e.get(k, 0) or 0) for k in ("x", "y", "w", "h"))
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="client_ocr_lines boxes must be numeric {x, y, w, h}.",
+            )
+        rows.append({"text": text, "x": x, "y": y, "w": w, "h": h})
+    return rows or None
 
 MIME_EXTENSIONS = {
     "image/jpeg": ".jpg",
@@ -147,6 +200,12 @@ async def create_scan(
         description="OCR text recognised on-device (Google ML Kit). "
                     "When provided, server OCR is skipped.",
     ),
+    client_ocr_lines: str | None = Form(
+        None,
+        description="Structured ML Kit OCR lines as JSON [{text, x, y, w, h}]. "
+                    "Preferred over client_ocr_text — bounding boxes enable "
+                    "misaligned key/value reassembly.",
+    ),
     db: AsyncSession = Depends(get_db),
     user=Depends(get_optional_user),
 ):
@@ -159,12 +218,16 @@ async def create_scan(
     """
     _validate_image(image, image_bytes := await image.read())
     client_ocr_text = _clean_client_ocr_text(client_ocr_text)
+    client_ocr_lines = _parse_client_ocr_lines(client_ocr_lines)
 
     # Run pipeline
     try:
         scan_id = str(uuid.uuid4())
-        result = run_scan_pipeline(image_bytes, scan_id=scan_id,
-                                   client_ocr_text=client_ocr_text)
+        result = run_scan_pipeline(
+            image_bytes, scan_id=scan_id,
+            client_ocr_text=client_ocr_text,
+            client_ocr_lines=client_ocr_lines,
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -309,6 +372,7 @@ async def generate_scan_pdf_report(
     inspector_name: str | None = Form("Legal Metrology Inspector"),
     location_hint: str | None = Form(None),
     client_ocr_text: str | None = Form(None, description="OCR text recognised on-device (Google ML Kit)"),
+    client_ocr_lines: str | None = Form(None, description="Structured ML Kit OCR lines as JSON [{text, x, y, w, h}]"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -317,11 +381,15 @@ async def generate_scan_pdf_report(
     image_bytes = await image.read()
     _validate_image(image, image_bytes)
     client_ocr_text = _clean_client_ocr_text(client_ocr_text)
+    client_ocr_lines = _parse_client_ocr_lines(client_ocr_lines)
 
     try:
         scan_id = str(uuid.uuid4())
-        pipeline_result = run_scan_pipeline(image_bytes, scan_id=scan_id,
-                                            client_ocr_text=client_ocr_text)
+        pipeline_result = run_scan_pipeline(
+            image_bytes, scan_id=scan_id,
+            client_ocr_text=client_ocr_text,
+            client_ocr_lines=client_ocr_lines,
+        )
     except Exception:
         logger.exception("Unexpected error in scan pipeline (report)")
         raise HTTPException(status_code=500, detail="Internal scan error. Please try again.")

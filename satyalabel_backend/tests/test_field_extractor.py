@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.field_extractor import FieldExtractor
+from app.services.field_extractor import FieldExtractor, extract_fields
 from app.services.ocr_service import OcrLine, OcrResult
 
 
@@ -211,3 +211,53 @@ class TestFalsePositiveGuards:
         assert len(merged) == 2
         assert merged[0].text == "Net Weight: 350g"
         assert merged[1].text == "Second row"
+
+
+class TestMisalignedKeyValues:
+    """Labels that print keys and values in separate rows/blocks."""
+
+    def _result(self, rows):
+        from app.services.ocr_service import OcrResult
+        return OcrResult.from_client_lines(rows)
+
+    def test_columnar_key_row_then_value_row(self):
+        r = self._result([
+            {"text": "MRP", "x": 20, "y": 100, "w": 80, "h": 24},
+            {"text": "Mfg Date", "x": 200, "y": 102, "w": 120, "h": 24},
+            {"text": "Best Before", "x": 380, "y": 100, "w": 140, "h": 24},
+            {"text": "Rs 40.00", "x": 15, "y": 150, "w": 100, "h": 24},
+            {"text": "05/2026", "x": 210, "y": 152, "w": 90, "h": 24},
+            {"text": "10/2027", "x": 390, "y": 150, "w": 90, "h": 24},
+        ])
+        f = extract_fields(r)
+        assert f.mrp.value == "40.00"
+        assert f.mfg_date.value == "05/2026"
+        assert f.best_before_date.value == "10/2027"
+
+    def test_columnar_values_must_not_cross_pair(self):
+        # Values offset from keys — nearest-x matching must pair correctly
+        r = self._result([
+            {"text": "MRP", "x": 20, "y": 100, "w": 80, "h": 24},
+            {"text": "Net Qty", "x": 300, "y": 100, "w": 120, "h": 24},
+            {"text": "Rs 99.00", "x": 30, "y": 160, "w": 110, "h": 24},
+            {"text": "500 g", "x": 310, "y": 158, "w": 80, "h": 24},
+        ])
+        f = extract_fields(r)
+        assert f.mrp.value == "99.00"
+        assert f.net_quantity.value == "500 g"
+
+    def test_vertical_key_then_value(self):
+        from app.services.ocr_service import OcrResult
+        r = OcrResult.from_client_text("TATA Salt\nMRP\n₹ 30.00\nNet Qty: 1 kg")
+        f = extract_fields(r)
+        assert f.mrp.value == "30.00"
+        assert f.net_quantity.value == "1 kg"
+
+    def test_normal_inline_label_untouched(self):
+        from app.services.ocr_service import OcrResult
+        r = OcrResult.from_client_text(
+            "MRP Rs. 30.00\nNet Qty: 1 kg\nMfg: 12 Jan 2026\nBest Before: 12 Jan 2027"
+        )
+        f = extract_fields(r)
+        assert f.mrp.value == "30.00"
+        assert f.mfg_date.value == "12 Jan 2026"

@@ -30,6 +30,7 @@ uploads/
 satyalabel_backend/debug_*.png
 satyalabel_backend/debug_*.jpg
 satyalabel_backend/scan_debug_*.jpg
+satyalabel_backend/test_label.png
 
 # OS / IDE
 .DS_Store

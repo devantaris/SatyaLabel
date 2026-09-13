@@ -2,7 +2,7 @@
 
 > **Persistent session-to-session handoff.** Documents the CURRENT state only.
 > Do not redesign or refactor based on this file. Read fully before continuing development.
-> Last updated: 2026-09-11 (session 3) · Phases 0–7 COMPLETE (see §2)
+> Last updated: 2026-09-13 (session 4) · Phases 0–7 COMPLETE · **LIVE IN PRODUCTION** (see §2a)
 
 ---
 
@@ -54,7 +54,24 @@ SatyaLabel/
 | CI fix | `7ac4d7e` | **Fixed the CI that had been red since commit 1**: setuptools flat-layout auto-discovery refused to build (`['app','alembic']` multiple top-level packages) — added `[tool.setuptools.packages.find] include=["app*"]` to pyproject.toml |
 | 5 — Flutter | `4a52044` | **Full frontend** — see §4 |
 | 6 — Analytics | `d57f2ee` | `GET /api/v1/analytics/{overview,heatmap,manufacturers,districts,export}` (inspector-only, PostGIS ST_SnapToGrid + JSONB aggregations, CSV export); Flutter inspector Analytics dashboard; live-verified |
-| 7 — Production | (this session) | `Dockerfile.prod` (non-root, non-editable), `docker-compose.prod.yml` (no source mounts, auto-migrations, healthchecks, nginx), `deploy/nginx.conf` (TLS-ready), S3-compatible storage abstraction (`pip install ".[s3]"`), `docs/deployment.md` runbook |
+| 7 — Production | `c841e5e` | `Dockerfile.prod` (non-root, non-editable), `docker-compose.prod.yml` (no source mounts, auto-migrations, healthchecks, nginx), `deploy/nginx.conf` (TLS-ready), S3-compatible storage abstraction (`pip install ".[s3]"`), `docs/deployment.md` runbook |
+| Device fixes | `6131139` | **Physical-device connectivity**: 422 on every app scan upload (Dart multipart parts lacked `filename` → python-multipart parses them as text fields → FastAPI rejects); offline false-negative (health poll was gated on connectivity_plus, which cannot see adb reverse tunnels); `BASE_URL` dart-define; NDK 27 pin. Verified E2E on physical Redmi: scans 200, offline queue auto-sync, analytics, login. **Gotcha: `adb reverse` mappings are cleared on every USB replug — re-run `adb reverse tcp:8000 tcp:8000` (or use the watchdog loop) after unplugging the phone.** |
+| Live deploy | `0d8fa6b`→`4ba2985` | **Deployed live** — see §2a |
+
+### 2a. LIVE DEPLOYMENT (session 4, 2026-09-13)
+
+**API: https://satyalabel-api.onrender.com** (Render free plan, Docker, region Singapore)
+**DB: Supabase Postgres 17 + PostGIS** (region ap-southeast-1, session pooler URI on 5432)
+**Test inspector: `inspector@gov.in` / `inspect-2026`** (seeded direct-SQL into Supabase)
+
+- `render.yaml` (repo root) is the Render blueprint — 3 dashboard-managed secrets: `DATABASE_URL` (asyncpg), `DATABASE_URL_SYNC` (psycopg2), `SECRET_KEY`. Everything else is in the yaml.
+- `satyalabel_backend/Dockerfile.cloud`: CPU-only torch (default PyPI serves 2.5GB CUDA wheels on linux), `$PORT`, single worker, migrations at start.
+- Deploy flow: push to `main` → Render auto-deploys (build ~10 min). Secrets live only in Render's dashboard.
+- Release APK: `flutter build apk --release --dart-define=BASE_URL=https://satyalabel-api.onrender.com`.
+- Verified live E2E: health, migrations/PostGIS, sync scan (COMPLIANT, conf 0.95, 9/10 fields), persistence, inspector login, analytics overview + PostGIS heatmap, CSV-ready, PDF report (82KB).
+- Field-extraction fixes found via live smoke test (`4ba2985`): spaced mobiles/`+91` landlines in consumer_phone; YYYY/MM/DD + "15 Aug 2026" + "Mfg Date"/"Best Before Date" headers + relative durations ("6 months from packaging") in dates; date-consistency skips relative durations. Tests: 133 passing.
+- **Free-tier constraints:** sleeps after 15 min idle (~30-60s cold wake; the app's 30s health poll keeps it awake while open); 512MB RAM — Tesseract path fine, EasyOCR fallback would OOM (only triggers when OCR conf < 0.60); `/tmp/uploads` is ephemeral (images lost on redeploy; verdicts/history/analytics persist in Supabase). No Celery worker/Redis deployed — async scan falls back to sync.
+- Hosting history this session: Railway trial expired; HF Spaces requires PRO for Docker. Railway config (`railway.json`, `.railwayignore`) remains in repo if ever needed.
 
 > **History note (2026-09-11 session 2):** git history was rewritten with `git filter-branch --msg-filter` to remove all `Co-Authored-By: Claude` trailers (8 commits). Trees were verified byte-identical before force-push (`--force-with-lease`). Backup branch: `backup/pre-attribution-rewrite` (local only). `~/.claude/settings.json` now has `includeCoAuthoredBy: false` + `"attribution": {"commit": "", "pr": ""}` — future commits/PRs carry no attribution.
 
@@ -169,11 +186,11 @@ satyalabel_frontend/lib/
 
 ## 7. Remaining Work
 
-All roadmap phases (0–7) are complete. What's left needs resources outside this repo:
+All roadmap phases (0–7) are complete and the stack is **live in production** (§2a). What's left:
 
-1. **Actual deployment** — rent a server + domain, follow `docs/deployment.md` (secrets, TLS via certbot, first-admin seeding). Everything is prepared; nothing code-side remains.
-2. **Device-level E2E of the Flutter app** — run on an emulator/phone against the backend (`10.0.2.2:8000`): camera → verdict → PDF, inspector login (`inspector@gov.in` / `inspect-2026` on the dev stack) + batch session + analytics, airplane-mode offline queue → auto-sync.
-3. Optional polish: Flutter CI job in ci.yml (analyze + test); populate `legal/` with the LM(PC) Rules 2011 text; Hindi OCR (deferred roadmap item).
+1. **Device test of the release APK** against the live URL — install `satyalabel_frontend/build/app/outputs/flutter-apk/app-release.apk` on the Redmi (uninstall the old dev app first — a previously-set in-app URL persists in SharedPreferences and would override the baked-in default). No adb reverse needed anymore: the backend is public HTTPS.
+2. Optional polish: Flutter CI job in ci.yml (analyze + test); populate `legal/` with the LM(PC) Rules 2011 text; Hindi OCR (deferred roadmap item).
+3. Optional infra upgrades when budget allows: paid Render instance (no sleep, more RAM for EasyOCR), S3 image storage (survives redeploys), Redis + Celery worker for async scans, custom domain.
 
 ## 8. Commands
 

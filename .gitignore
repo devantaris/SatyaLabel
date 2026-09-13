@@ -40,3 +40,6 @@ Thumbs.db
 
 # Alembic
 satyalabel_backend/alembic/versions/*.pyc
+satyalabel_backend/phone_*.jpg
+satyalabel_backend/label_test_live.json
+satyalabel_backend/recent_scans.json

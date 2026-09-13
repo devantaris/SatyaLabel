@@ -170,3 +170,44 @@ def test_full_marie_gold_label(extractor):
     # Verify extracted values make sense
     assert "20" in fields.mrp.value
     assert "200" in fields.net_quantity.value
+
+
+# ── False-positive guards ─────────────────────────────────────────────────────
+
+class TestFalsePositiveGuards:
+    """LM licence numbers and bare header words must not become field values."""
+
+    def _ocr(self, text: str) -> OcrResult:
+        lines = [OcrLine(t, 0.85, (0, i * 20, 100, 15), "rapidocr") for i, t in enumerate(text.split("\n"))]
+        return OcrResult(text, lines, "rapidocr", 0.85, False)
+
+    def test_mrp_ignores_licence_number(self):
+        # "R-113/9" licence OCR'd as "Rs.1.13/9" must NOT yield MRP=1.13
+        fields = FieldExtractor().extract(self._ocr("MRP: (incl. of all taxes)\n395.00 Rs.1.13/9"))
+        assert not fields.mrp.is_found
+
+    def test_mrp_still_matches_slash_dash_suffix(self):
+        fields = FieldExtractor().extract(self._ocr("MRP Rs. 50/-"))
+        assert fields.mrp.is_found and fields.mrp.value == "50"
+
+    def test_batch_requires_digit(self):
+        # "Lot No." with no code must not capture the bare word "No"
+        fields = FieldExtractor().extract(self._ocr("Lot No.\nBest Before: 6 months"))
+        assert not fields.batch_number.is_found
+
+    def test_batch_with_code_still_matches(self):
+        fields = FieldExtractor().extract(self._ocr("Batch No: TF20260815A"))
+        assert fields.batch_number.is_found and fields.batch_number.value == "TF20260815A"
+
+    def test_two_column_row_merges(self):
+        from app.services.ocr_service import OcrService
+        # Two-column label: name on the left, value on the right (same row)
+        lines = [
+            OcrLine("Net Weight:", 0.85, (100, 737, 90, 35), "rapidocr"),
+            OcrLine("350g", 0.80, (533, 740, 50, 32), "rapidocr"),
+            OcrLine("Second row", 0.80, (100, 830, 120, 35), "rapidocr"),
+        ]
+        merged = OcrService._merge_same_row(lines)
+        assert len(merged) == 2
+        assert merged[0].text == "Net Weight: 350g"
+        assert merged[1].text == "Second row"

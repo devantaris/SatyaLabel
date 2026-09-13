@@ -20,9 +20,11 @@ Pipeline order:
   3. Glare detection + masking
   4. Deskew (correct rotation)
   5. Perspective correction (4-point homography) — if auto-detectable
+     and the detected rectangle passes sanity checks
   6. CLAHE contrast enhancement
-  7. Adaptive thresholding (for binarized path to Tesseract)
-  8. Morphological denoising
+  7. Grayscale conversion for the Tesseract path (Tesseract applies its
+     own adaptive binarization internally, which is more robust on real
+     photographs than any fixed threshold we could apply here)
 """
 from __future__ import annotations
 
@@ -51,7 +53,7 @@ class PreprocessResult:
     """Holds the pre-processed image variants and diagnostics."""
     original: np.ndarray                  # Original loaded image
     processed: np.ndarray                 # Final processed image (colour)
-    binarized: np.ndarray                 # Binarized version (for Tesseract)
+    ocr_gray: np.ndarray                  # Contrast-enhanced grayscale (for Tesseract)
     skew_angle: float = 0.0              # Detected skew angle in degrees
     glare_detected: bool = False
     perspective_corrected: bool = False
@@ -63,9 +65,9 @@ class PreprocessResult:
         return Image.fromarray(cv2.cvtColor(self.processed, cv2.COLOR_BGR2RGB))
 
     @property
-    def pil_binarized(self) -> Image.Image:
-        """Return the binarized image as a PIL Image (greyscale for Tesseract)."""
-        return Image.fromarray(self.binarized)
+    def pil_ocr_gray(self) -> Image.Image:
+        """Return the contrast-enhanced grayscale image (for Tesseract)."""
+        return Image.fromarray(self.ocr_gray)
 
 
 # ── Main Pipeline ─────────────────────────────────────────────────────────────
@@ -77,7 +79,7 @@ class ImagePreprocessor:
         preprocessor = ImagePreprocessor()
         result = preprocessor.process(image_bytes)
         # result.processed  → colour-corrected ndarray
-        # result.binarized  → greyscale binarized ndarray
+        # result.ocr_gray   → contrast-enhanced grayscale ndarray (for Tesseract)
     """
 
     def process(self, image_bytes: bytes) -> PreprocessResult:
@@ -88,7 +90,7 @@ class ImagePreprocessor:
             image_bytes: Raw image bytes (JPEG, PNG, WebP, etc.)
 
         Returns:
-            PreprocessResult with processed and binarized image arrays.
+            PreprocessResult with processed and OCR-grayscale image arrays.
         """
         # Step 1: Decode
         img = self._decode(image_bytes)
@@ -110,7 +112,7 @@ class ImagePreprocessor:
             img = self._rotate(img, skew_angle)
             logger.debug("Deskewed image by %.2f°", skew_angle)
 
-        # Step 5: Perspective correction (best-effort)
+        # Step 5: Perspective correction (best-effort, sanity-checked)
         perspective_corrected = False
         corrected = self._try_perspective_correct(img)
         if corrected is not None:
@@ -123,16 +125,16 @@ class ImagePreprocessor:
         # Step 6: CLAHE contrast enhancement
         img = self._apply_clahe(img)
 
-        # Step 7: Binarize (separate copy — keep colour for EasyOCR)
-        binarized = self._binarize(img)
-
-        # Step 8: Morphological denoising on binarized
-        binarized = self._denoise(binarized)
+        # Step 7: Grayscale for the Tesseract path.
+        # Tesseract binarizes internally (and adapts locally), which is far
+        # more reliable on real photographs than a fixed Otsu/adaptive
+        # threshold applied before OCR.
+        ocr_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         return PreprocessResult(
             original=original,
             processed=img,
-            binarized=binarized,
+            ocr_gray=ocr_gray,
             skew_angle=skew_angle,
             glare_detected=glare_detected,
             perspective_corrected=perspective_corrected,
@@ -228,7 +230,13 @@ class ImagePreprocessor:
         Finds the largest rectangular contour (assumed to be the label boundary)
         and applies a homography to warp it to a flat rectangle.
 
-        Returns corrected image, or None if no clear rectangle was found.
+        Sanity-checked: on real photographs the largest quadrilateral is often
+        a background edge or shadow, not the label — warping to it produces
+        absurdly stretched images (e.g. 1200×10000) that destroy OCR. The
+        quad must cover a plausible share of the frame (25–98%) and the
+        warped result must have a sane aspect ratio.
+
+        Returns corrected image, or None if no plausible rectangle was found.
         """
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -237,18 +245,33 @@ class ImagePreprocessor:
         contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
 
+        h, w = img.shape[:2]
+        image_area = h * w
+
         screen_cnt = None
         for c in contours:
             peri = cv2.arcLength(c, True)
             approx = cv2.approxPolyDP(c, 0.02 * peri, True)
-            if len(approx) == 4:
-                screen_cnt = approx
-                break
+            if len(approx) != 4:
+                continue
+            quad_area = cv2.contourArea(approx)
+            if not (0.25 * image_area) <= quad_area <= (0.98 * image_area):
+                continue
+            screen_cnt = approx
+            break
 
         if screen_cnt is None:
             return None
 
-        return self._four_point_transform(img, screen_cnt.reshape(4, 2))
+        warped = self._four_point_transform(img, screen_cnt.reshape(4, 2))
+
+        # Reject extreme aspect ratios (thin slivers stretched to ribbons)
+        wh, ww = warped.shape[:2]
+        aspect = ww / wh
+        if aspect > 3.5 or aspect < 1 / 3.5:
+            return None
+
+        return warped
 
     def _four_point_transform(self, img: np.ndarray, pts: np.ndarray) -> np.ndarray:
         """Apply a 4-point perspective transform to warp the label to a flat rectangle."""
@@ -295,32 +318,6 @@ class ImagePreprocessor:
         l_chan = clahe.apply(l_chan)
         enhanced = cv2.merge([l_chan, a_chan, b_chan])
         return cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
-
-    def _binarize(self, img: np.ndarray) -> np.ndarray:
-        """
-        Convert to greyscale and apply adaptive thresholding.
-        Produces a clean black-text-on-white-background image
-        that Tesseract performs best on.
-        """
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Otsu's thresholding after Gaussian blur (good for uniform backgrounds)
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-        _, otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        # Adaptive thresholding (better for uneven lighting)
-        adaptive = cv2.adaptiveThreshold(
-            gray, 255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, 31, 10,
-        )
-        # Blend: prefer adaptive for local clarity, Otsu for global consistency
-        blended = cv2.bitwise_and(otsu, adaptive)
-        return blended
-
-    def _denoise(self, binary: np.ndarray) -> np.ndarray:
-        """Remove small noise blobs using morphological opening."""
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-        opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-        return opened
 
 
 # ── Convenience function ──────────────────────────────────────────────────────

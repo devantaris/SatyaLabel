@@ -29,8 +29,9 @@ class Settings(BaseSettings):
 
     # ── OCR ────────────────────────────────────────────────────────────────────
     TESSERACT_CMD: str = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Windows path; override in .env
-    OCR_CONFIDENCE_THRESHOLD: float = 0.60   # Below this → fallback to EasyOCR
+    OCR_CONFIDENCE_THRESHOLD: float = 0.60   # Below this → fallback to RapidOCR
     OCR_FALLBACK_THRESHOLD: float = 0.40     # Below this → flag for manual correction
+    RAPIDOCR_ENABLED: bool = True            # Deep-learning fallback engine (ONNX, ~100 MB RAM)
 
     # ── File Storage ───────────────────────────────────────────────────────────
     UPLOAD_DIR: str = "uploads"

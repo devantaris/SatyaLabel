@@ -33,14 +33,16 @@ logger = logging.getLogger(__name__)
 # ── Regex Pattern Library ─────────────────────────────────────────────────────
 
 # MRP — "MRP Rs. 50", "M.R.P: ₹50.00", "MRP ₹ 50/-", "Rs 50", "₹50"
+# The lookaheads reject false positives like Legal Metrology licence
+# numbers ("R-113/9" OCR'd as "Rs.1.13/9" — value followed by /digit)
 _MRP_PATTERNS = [
     re.compile(
         r"(?:M\.?R\.?P\.?|Maximum\s+Retail\s+Price)\s*[:\-]?\s*"
-        r"(?:Rs\.?|₹|INR)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:/-|/)?",
+        r"(?:Rs\.?|₹|INR)\s*([\d,]++(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"(?:Rs\.?|₹|INR)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:/-|/)?",
+        r"(?:Rs\.?|₹|INR)\s*([\d,]++(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
         re.IGNORECASE,
     ),
 ]
@@ -114,10 +116,12 @@ _MANUFACTURER_HEADER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Batch / Lot number
+# Batch / Lot number — the captured code must contain at least one digit
+# (rejects false hits like the bare word "No" from "Lot No.")
 _BATCH_PATTERNS = [
     re.compile(
-        r"(?:Batch\s*(?:No\.?|Number|#)?|Lot\s*(?:No\.?|Number|#)?|B\.?\s*No\.?)\s*[:\-]?\s*([A-Z0-9\-/]+)",
+        r"(?:Batch\s*(?:No\.?|Number|#)?|Lot\s*(?:No\.?|Number|#)?|B\.?\s*No\.?)\s*[:\-]?\s*"
+        r"([A-Z0-9\-/]*\d[A-Z0-9\-/]*)",
         re.IGNORECASE,
     ),
 ]

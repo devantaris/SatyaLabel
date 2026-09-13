@@ -49,7 +49,7 @@ class TestImagePreprocessor:
         img_bytes = _make_label_image()
         result = self.preprocessor.process(img_bytes)
         assert result.processed is not None
-        assert result.binarized is not None
+        assert result.ocr_gray is not None
         assert result.original is not None
 
     def test_output_shapes_are_valid(self):
@@ -58,8 +58,8 @@ class TestImagePreprocessor:
         # Processed image should be a valid numpy array with 3 channels
         assert len(result.processed.shape) == 3
         assert result.processed.shape[2] == 3
-        # Binarized should be grayscale (2D)
-        assert len(result.binarized.shape) == 2
+        # OCR grayscale should be 2D
+        assert len(result.ocr_gray.shape) == 2
 
     def test_glare_detection(self):
         img_with_glare = _make_label_image(add_glare=True)
@@ -87,9 +87,9 @@ class TestImagePreprocessor:
         img_bytes = _make_label_image()
         result = self.preprocessor.process(img_bytes)
         pil_proc = result.pil_processed
-        pil_bin = result.pil_binarized
+        pil_gray = result.pil_ocr_gray
         assert pil_proc.mode == "RGB"
-        assert pil_bin.mode == "L"  # Grayscale
+        assert pil_gray.mode == "L"  # Grayscale
 
     def test_resize_to_standard_width(self):
         # A very large image should be resized down

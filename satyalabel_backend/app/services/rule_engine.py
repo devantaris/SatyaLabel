@@ -196,6 +196,40 @@ class RuleEngine:
         violations += self.check_consumer_care(fields.consumer_phone, fields.consumer_email)
         violations += self.check_batch_number(fields.batch_number)
 
+        # Readability guard: if NOT ONE mandatory declaration could be read,
+        # the photo almost certainly doesn't show a readable label (wrong
+        # subject, too far away, blurry) — a real label missing every single
+        # declaration is vanishingly rare. Downgrade everything to warnings
+        # and ask for a retake instead of crying NON_COMPLIANT.
+        critical_fields = (
+            fields.mrp, fields.net_quantity, fields.mfg_date,
+            fields.manufacturer, fields.consumer_phone,
+        )
+        if not any(f.is_found for f in critical_fields):
+            violations = [
+                (v if v.severity != Severity.CRITICAL
+                 else Violation(
+                     field_name=v.field_name,
+                     severity=Severity.WARNING,
+                     message=f"'{v.field_name}' not detected — no label text could be read. "
+                             "Retake the photo as a close-up of the label in good light.",
+                     rule_reference=v.rule_reference,
+                     extracted_value=v.extracted_value,
+                     confidence=v.confidence,
+                 ))
+                for v in violations
+            ]
+            violations.insert(0, Violation(
+                field_name="label_text",
+                severity=Severity.WARNING,
+                message="NO LABEL TEXT DETECTED — the photo does not appear to show a "
+                        "readable product label. Retake as a close-up, label filling "
+                        "the frame, in good light.",
+                rule_reference="Scan quality check",
+                extracted_value=None,
+                confidence=0.0,
+            ))
+
         # Determine verdict
         critical_count = sum(1 for v in violations if v.severity == Severity.CRITICAL)
         warning_count = sum(1 for v in violations if v.severity == Severity.WARNING)

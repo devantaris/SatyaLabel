@@ -28,7 +28,7 @@ class ScanRecord(Base):
         image_path      : Relative path to saved image file
         verdict         : COMPLIANT / NON_COMPLIANT / NEEDS_VERIFICATION
         violation_count : Number of critical violations
-        ocr_engine      : "tesseract" | "easyocr" | "combined"
+        ocr_engine      : "tesseract" | "rapidocr" | "combined"
         ocr_confidence  : Mean OCR confidence (0.0–1.0)
         extracted_fields: JSONB — all 10 extracted field values
         compliance_data : JSONB — full ComplianceReport.as_dict()

@@ -26,7 +26,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="Asia/Kolkata",
     enable_utc=True,
-    # OCR tasks are CPU-heavy; long timeouts for EasyOCR fallbacks
+    # OCR tasks are CPU-heavy; long timeouts for RapidOCR fallbacks
     task_soft_time_limit=300,
     task_time_limit=360,
     # Don't pickle results

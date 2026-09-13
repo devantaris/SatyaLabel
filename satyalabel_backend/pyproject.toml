@@ -30,7 +30,7 @@ dependencies = [
 
     # OCR
     "pytesseract>=0.3.10",
-    "easyocr>=1.7.1",
+    "rapidocr-onnxruntime>=1.3.24",
 
     # Image processing
     "opencv-python-headless>=4.9.0.80",

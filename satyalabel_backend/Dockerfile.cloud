@@ -1,13 +1,10 @@
 # SatyaLabel — cloud-host image (Render free tier and similar).
 #
-# Same as Dockerfile.prod with three cloud-specific changes:
-#   1. CPU-only torch installed explicitly first (the default PyPI index
-#      serves ~2.5 GB CUDA wheels on linux; cloud hosts have no GPU).
-#   2. CMD runs migrations then uvicorn on $PORT (injected by the host).
-#   3. Single uvicorn worker — sized for 512 MB free-tier containers.
-#      easyocr is imported lazily (ocr_service), so normal Tesseract-path
-#      scans fit comfortably; only the low-confidence EasyOCR fallback
-#      exceeds 512 MB.
+# Same as Dockerfile.prod with two cloud-specific changes:
+#   1. CMD runs migrations then uvicorn on $PORT (injected by the host).
+#   2. Single uvicorn worker — sized for 512 MB free-tier containers.
+#      The RapidOCR fallback (ONNX Runtime, ~100 MB) fits alongside
+#      Tesseract; no torch/EasyOCR (which OOM-killed 512 MB containers).
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,14 +19,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-
 COPY pyproject.toml README.md ./
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini main.py ./
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
 
 RUN useradd --create-home --uid 10001 satya \
     && mkdir -p /tmp/uploads \

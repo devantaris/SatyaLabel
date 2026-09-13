@@ -207,3 +207,40 @@ class TestSummaryText:
 def test_module_level_check_compliance(compliant_fields):
     report = check_compliance(compliant_fields)
     assert report.verdict == Verdict.COMPLIANT
+
+
+# ── Unreadable label guard ────────────────────────────────────────────────────
+
+class TestUnreadableLabelGuard:
+    """When NOT ONE mandatory declaration is readable, the photo almost
+    certainly doesn't show a readable label — ask for a retake instead of
+    declaring every field in violation."""
+
+    @staticmethod
+    def _blank_fields() -> ExtractedFields:
+        return ExtractedFields(
+            mrp=_field("mrp", None, 0.0),
+            net_quantity=_field("net_quantity", None, 0.0),
+            mfg_date=_field("mfg_date", None, 0.0),
+            best_before_date=_field("best_before_date", None, 0.0),
+            manufacturer=_field("manufacturer", None, 0.0),
+            consumer_phone=_field("consumer_phone", None, 0.0),
+            consumer_email=_field("consumer_email", None, 0.0),
+            batch_number=_field("batch_number", None, 0.0),
+            country_of_origin=_field("country_of_origin", None, 0.0),
+            generic_name=_field("generic_name", None, 0.0),
+        )
+
+    def test_nothing_readable_needs_verification(self, engine):
+        report = engine.run(self._blank_fields())
+        assert report.verdict == Verdict.NEEDS_VERIFICATION
+        assert report.needs_manual_review is True
+        assert report.violation_count == 0  # no CRITICAL violations
+        assert any(v.field_name == "label_text" for v in report.warnings)
+        assert "NO LABEL TEXT DETECTED" in report.warnings[0].message
+
+    def test_partial_label_still_non_compliant(self, engine, compliant_fields):
+        # One readable field + missing MRP → genuine NON_COMPLIANT
+        compliant_fields.mrp = _field("mrp", None, 0.0)
+        report = engine.run(compliant_fields)
+        assert report.verdict == Verdict.NON_COMPLIANT

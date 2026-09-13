@@ -70,7 +70,7 @@ class _CameraScreenState extends State<CameraScreen>
       );
       final controller = CameraController(
         back,
-        ResolutionPreset.high,
+        ResolutionPreset.max, // max resolution — OCR needs sharp, large text
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );

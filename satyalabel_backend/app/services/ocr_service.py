@@ -294,14 +294,14 @@ class OcrService:
 
         merged: list[OcrLine] = []
         for row in rows:
-            group = sorted(row["lines"], key=lambda l: l.bbox[0])
-            x0 = min(l.bbox[0] for l in group)
-            y0 = min(l.bbox[1] for l in group)
-            x1 = max(l.bbox[0] + l.bbox[2] for l in group)
-            y1 = max(l.bbox[1] + l.bbox[3] for l in group)
+            group = sorted(row["lines"], key=lambda ln: ln.bbox[0])
+            x0 = min(ln.bbox[0] for ln in group)
+            y0 = min(ln.bbox[1] for ln in group)
+            x1 = max(ln.bbox[0] + ln.bbox[2] for ln in group)
+            y1 = max(ln.bbox[1] + ln.bbox[3] for ln in group)
             merged.append(OcrLine(
-                text=" ".join(l.text for l in group),
-                confidence=float(np.mean([l.confidence for l in group])),
+                text=" ".join(ln.text for ln in group),
+                confidence=float(np.mean([ln.confidence for ln in group])),
                 bbox=(x0, y0, x1 - x0, y1 - y0),
                 engine="rapidocr",
             ))

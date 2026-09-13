@@ -32,17 +32,22 @@ logger = logging.getLogger(__name__)
 
 # ── Regex Pattern Library ─────────────────────────────────────────────────────
 
-# MRP — "MRP Rs. 50", "M.R.P: ₹50.00", "MRP ₹ 50/-", "Rs 50", "₹50"
+# MRP — "MRP Rs. 50", "M.R.P: ₹50.00", "MRP ₹ 50/-", "Rs 50", "₹50",
+# "MRP: 40.00" (ML Kit often drops/mangles the ₹ symbol from the latin
+# model, so the MRP-prefixed pattern must also match with NO currency
+# marker at all).
 # The lookaheads reject false positives like Legal Metrology licence
-# numbers ("R-113/9" OCR'd as "Rs.1.13/9" — value followed by /digit)
+# numbers ("R-113/9" OCR'd as "Rs.1.13/9" — value followed by /digit).
+# Captures must start with a digit — otherwise "Rs," (misread "Rs.")
+# would capture the bare comma as a value.
 _MRP_PATTERNS = [
     re.compile(
         r"(?:M\.?R\.?P\.?|Maximum\s+Retail\s+Price)\s*[:\-]?\s*"
-        r"(?:Rs\.?|₹|INR)\s*([\d,]++(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
+        r"(?:Rs\.?|₹|INR|R\$)?[.,*]?\s*(\d[\d,]*+(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"(?:Rs\.?|₹|INR)\s*([\d,]++(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
+        r"(?:Rs\.?|₹|INR|R\$)[.,*]?\s*(\d[\d,]*+(?:\.\d{1,2})?+)(?!\s*/\s*\d)",
         re.IGNORECASE,
     ),
 ]

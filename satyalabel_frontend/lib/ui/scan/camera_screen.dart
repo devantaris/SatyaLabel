@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
@@ -33,6 +34,11 @@ class _CameraScreenState extends State<CameraScreen>
   String? _submitError;
   FlashMode _flashMode = FlashMode.off;
 
+  /// On-device OCR (Google ML Kit) — runs on the phone, offline-capable.
+  /// The recognised text is sent with the scan; the backend then skips its
+  /// own (weaker) OCR engines and runs only field extraction + rules.
+  final _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+
   String? get _sessionId => widget.sessionId;
 
   @override
@@ -46,6 +52,7 @@ class _CameraScreenState extends State<CameraScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
+    _textRecognizer.close();
     super.dispose();
   }
 
@@ -108,8 +115,10 @@ class _CameraScreenState extends State<CameraScreen>
     });
 
     Uint8List? imageBytes;
+    String? ocrText;
     try {
       final xfile = await controller.takePicture();
+      ocrText = await _recognizeText(xfile.path);
       var bytes = await xfile.readAsBytes();
       bytes = await _shrinkIfNeeded(bytes);
       imageBytes = bytes;
@@ -125,6 +134,7 @@ class _CameraScreenState extends State<CameraScreen>
           latitude: location?.latitude,
           longitude: location?.longitude,
           sessionId: _sessionId,
+          ocrText: ocrText,
         );
         if (mounted) setState(() => _phase = _CapturePhase.queued);
         return;
@@ -136,6 +146,7 @@ class _CameraScreenState extends State<CameraScreen>
         latitude: location?.latitude,
         longitude: location?.longitude,
         sessionId: _sessionId,
+        ocrText: ocrText,
       );
       await app.rememberScan(result.scanId);
 
@@ -177,6 +188,7 @@ class _CameraScreenState extends State<CameraScreen>
         latitude: location?.latitude,
         longitude: location?.longitude,
         sessionId: _sessionId,
+        ocrText: ocrText,
       );
       if (mounted) setState(() => _phase = _CapturePhase.queued);
     } catch (e) {
@@ -185,6 +197,22 @@ class _CameraScreenState extends State<CameraScreen>
         _phase = _CapturePhase.ready;
         _submitError = 'Failed to process image: $e';
       });
+    }
+  }
+
+  /// Runs ML Kit text recognition on the captured photo. Returns null when
+  /// recognition fails or finds nothing — the backend then falls back to
+  /// its own OCR engines.
+  Future<String?> _recognizeText(String imagePath) async {
+    try {
+      final recognized = await _textRecognizer.processImage(
+        InputImage.fromFilePath(imagePath),
+      );
+      final text = recognized.text.trim();
+      return text.isEmpty ? null : text;
+    } catch (e) {
+      debugPrint('ML Kit OCR failed: $e');
+      return null;
     }
   }
 

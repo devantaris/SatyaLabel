@@ -76,6 +76,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         locationHint: result.location == null
             ? null
             : '${result.location!.latitude}, ${result.location!.longitude}',
+        ocrText: result.ocrRawText,
       );
       final dir = await getTemporaryDirectory();
       final file = File(

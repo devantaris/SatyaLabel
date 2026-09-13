@@ -52,13 +52,21 @@ class ScanPipeline:
       Image bytes → Pre-process → OCR → Field Extraction → Compliance Check
     """
 
-    def run(self, image_bytes: bytes, scan_id: str | None = None) -> ScanPipelineResult:
+    def run(
+        self,
+        image_bytes: bytes,
+        scan_id: str | None = None,
+        client_ocr_text: str | None = None,
+    ) -> ScanPipelineResult:
         """
         Run the full pipeline on raw image bytes.
 
         Args:
             image_bytes: Raw image data from camera or upload.
             scan_id: Optional pre-assigned scan ID (generated if not provided).
+            client_ocr_text: OCR text produced on the client device (Google
+                ML Kit). When supplied, server-side OCR is skipped and the
+                text goes straight to field extraction + rule engine.
 
         Returns:
             ScanPipelineResult with all intermediate and final results.
@@ -68,13 +76,15 @@ class ScanPipeline:
 
         logger.info("Starting scan pipeline scan_id=%s image_size=%d", scan_id, len(image_bytes))
 
-        # Step 1: Pre-process
+        # Step 1: Pre-process (also validates the image is decodable)
         prep = preprocess_image(image_bytes)
         logger.debug("Pre-processing done scan_id=%s skew=%.2f", scan_id, prep.skew_angle)
 
-        # Step 2: OCR
-        ocr_svc = get_ocr_service()
-        ocr_result = ocr_svc.run(prep)
+        # Step 2: OCR (server engines, or client-provided ML Kit text)
+        if client_ocr_text:
+            ocr_result = OcrResult.from_client_text(client_ocr_text)
+        else:
+            ocr_result = get_ocr_service().run(prep)
         logger.debug(
             "OCR done scan_id=%s engine=%s conf=%.3f",
             scan_id, ocr_result.engine_used, ocr_result.mean_confidence,
@@ -103,6 +113,10 @@ class ScanPipeline:
 _pipeline = ScanPipeline()
 
 
-def run_scan_pipeline(image_bytes: bytes, scan_id: str | None = None) -> ScanPipelineResult:
+def run_scan_pipeline(
+    image_bytes: bytes,
+    scan_id: str | None = None,
+    client_ocr_text: str | None = None,
+) -> ScanPipelineResult:
     """Module-level convenience function."""
-    return _pipeline.run(image_bytes, scan_id)
+    return _pipeline.run(image_bytes, scan_id, client_ocr_text=client_ocr_text)

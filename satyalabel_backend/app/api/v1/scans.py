@@ -37,6 +37,23 @@ router = APIRouter()
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
 MAX_BYTES = settings.MAX_IMAGE_SIZE_MB * 1024 * 1024
+MAX_CLIENT_OCR_CHARS = 20_000
+
+
+def _clean_client_ocr_text(text: str | None) -> str | None:
+    """Validate and normalise client-side OCR text. None → run server OCR."""
+    if text is None:
+        return None
+    text = text.strip()
+    if not text:
+        return None
+    if len(text) > MAX_CLIENT_OCR_CHARS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"client_ocr_text too long ({len(text)} chars). "
+                   f"Maximum: {MAX_CLIENT_OCR_CHARS}.",
+        )
+    return text
 
 MIME_EXTENSIONS = {
     "image/jpeg": ".jpg",
@@ -125,6 +142,11 @@ async def create_scan(
     latitude: float | None = Form(None, description="GPS latitude of scan location"),
     longitude: float | None = Form(None, description="GPS longitude of scan location"),
     session_id: str | None = Form(None, description="Inspector batch session ID"),
+    client_ocr_text: str | None = Form(
+        None,
+        description="OCR text recognised on-device (Google ML Kit). "
+                    "When provided, server OCR is skipped.",
+    ),
     db: AsyncSession = Depends(get_db),
     user=Depends(get_optional_user),
 ):
@@ -136,11 +158,13 @@ async def create_scan(
     If a valid Bearer token is supplied, the scan is bound to that user.
     """
     _validate_image(image, image_bytes := await image.read())
+    client_ocr_text = _clean_client_ocr_text(client_ocr_text)
 
     # Run pipeline
     try:
         scan_id = str(uuid.uuid4())
-        result = run_scan_pipeline(image_bytes, scan_id=scan_id)
+        result = run_scan_pipeline(image_bytes, scan_id=scan_id,
+                                   client_ocr_text=client_ocr_text)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -188,6 +212,7 @@ async def create_scan_async(
     latitude: float | None = Form(None, description="GPS latitude of scan location"),
     longitude: float | None = Form(None, description="GPS longitude of scan location"),
     session_id: str | None = Form(None, description="Inspector batch session ID"),
+    client_ocr_text: str | None = Form(None, description="OCR text recognised on-device (Google ML Kit)"),
     db: AsyncSession = Depends(get_db),
     user=Depends(get_optional_user),
 ):
@@ -199,6 +224,7 @@ async def create_scan_async(
     Falls back to synchronous processing if the task queue is unavailable.
     """
     _validate_image(image, image_bytes := await image.read())
+    client_ocr_text = _clean_client_ocr_text(client_ocr_text)
 
     scan_id = str(uuid.uuid4())
     filename = _save_image_file(scan_id, image_bytes, image.content_type)
@@ -232,7 +258,8 @@ async def create_scan_async(
     if not dispatched:
         # Synchronous fallback: run inline (blocks this request)
         try:
-            result = run_scan_pipeline(image_bytes, scan_id=scan_id)
+            result = run_scan_pipeline(image_bytes, scan_id=scan_id,
+                                       client_ocr_text=client_ocr_text)
         except Exception:
             logger.exception("Fallback sync scan failed")
             raise HTTPException(
@@ -281,6 +308,7 @@ async def generate_scan_pdf_report(
     inspector_badge: str | None = Form("INSP-DL-2026-084"),
     inspector_name: str | None = Form("Legal Metrology Inspector"),
     location_hint: str | None = Form(None),
+    client_ocr_text: str | None = Form(None, description="OCR text recognised on-device (Google ML Kit)"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -288,10 +316,12 @@ async def generate_scan_pdf_report(
     """
     image_bytes = await image.read()
     _validate_image(image, image_bytes)
+    client_ocr_text = _clean_client_ocr_text(client_ocr_text)
 
     try:
         scan_id = str(uuid.uuid4())
-        pipeline_result = run_scan_pipeline(image_bytes, scan_id=scan_id)
+        pipeline_result = run_scan_pipeline(image_bytes, scan_id=scan_id,
+                                            client_ocr_text=client_ocr_text)
     except Exception:
         logger.exception("Unexpected error in scan pipeline (report)")
         raise HTTPException(status_code=500, detail="Internal scan error. Please try again.")

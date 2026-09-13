@@ -21,6 +21,7 @@ class QueuedScan {
     this.latitude,
     this.longitude,
     this.sessionId,
+    this.ocrText,
     required this.queuedAt,
   });
 
@@ -31,6 +32,7 @@ class QueuedScan {
         latitude: (json['latitude'] as num?)?.toDouble(),
         longitude: (json['longitude'] as num?)?.toDouble(),
         sessionId: json['session_id'] as String?,
+        ocrText: json['ocr_text'] as String?,
         queuedAt: DateTime.parse(json['queued_at'] as String),
       );
 
@@ -40,6 +42,7 @@ class QueuedScan {
   final double? latitude;
   final double? longitude;
   final String? sessionId;
+  final String? ocrText; // on-device ML Kit OCR text (uploaded with image)
   final DateTime queuedAt;
 
   Map<String, dynamic> toJson() => {
@@ -49,6 +52,7 @@ class QueuedScan {
         'latitude': latitude,
         'longitude': longitude,
         'session_id': sessionId,
+        'ocr_text': ocrText,
         'queued_at': queuedAt.toIso8601String(),
       };
 }
@@ -107,6 +111,7 @@ class OfflineQueue extends ChangeNotifier {
     double? latitude,
     double? longitude,
     String? sessionId,
+    String? ocrText,
   }) async {
     if (!_queueDir.existsSync()) {
       _queueDir.createSync(recursive: true);
@@ -130,6 +135,7 @@ class OfflineQueue extends ChangeNotifier {
       latitude: latitude,
       longitude: longitude,
       sessionId: sessionId,
+      ocrText: ocrText,
       queuedAt: DateTime.now(),
     );
     _items.add(entry);
@@ -168,6 +174,7 @@ class OfflineQueue extends ChangeNotifier {
             latitude: entry.latitude,
             longitude: entry.longitude,
             sessionId: entry.sessionId,
+            ocrText: entry.ocrText,
           );
           synced++;
           await file.delete();

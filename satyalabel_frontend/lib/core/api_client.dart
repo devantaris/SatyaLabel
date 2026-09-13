@@ -140,12 +140,15 @@ class ApiClient {
   ///
   /// When [sessionId] is set the scan joins an inspector batch session;
   /// a Bearer token (if logged in) binds the scan to the account.
+  /// [ocrText] is on-device ML Kit OCR output — when supplied the backend
+  /// skips its own OCR engines.
   Future<ScanResult> submitScan(
     Uint8List imageBytes, {
     required String mimeType,
     double? latitude,
     double? longitude,
     String? sessionId,
+    String? ocrText,
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/v1/scans/'))
       ..files.add(http.MultipartFile.fromBytes(
@@ -159,6 +162,9 @@ class ApiClient {
     if (latitude != null) request.fields['latitude'] = latitude.toString();
     if (longitude != null) request.fields['longitude'] = longitude.toString();
     if (sessionId != null) request.fields['session_id'] = sessionId;
+    if (ocrText != null && ocrText.trim().isNotEmpty) {
+      request.fields['client_ocr_text'] = ocrText;
+    }
     request.headers.addAll(_headers);
 
     http.StreamedResponse streamed;
@@ -230,6 +236,7 @@ class ApiClient {
     String? inspectorBadge,
     String? inspectorName,
     String? locationHint,
+    String? ocrText,
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/v1/scans/report'))
       ..files.add(http.MultipartFile.fromBytes(
@@ -241,6 +248,9 @@ class ApiClient {
     if (inspectorBadge != null) request.fields['inspector_badge'] = inspectorBadge;
     if (inspectorName != null) request.fields['inspector_name'] = inspectorName;
     if (locationHint != null) request.fields['location_hint'] = locationHint;
+    if (ocrText != null && ocrText.trim().isNotEmpty) {
+      request.fields['client_ocr_text'] = ocrText;
+    }
 
     http.StreamedResponse streamed;
     try {

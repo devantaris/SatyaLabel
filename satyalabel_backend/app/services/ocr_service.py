@@ -60,11 +60,28 @@ class OcrResult:
     """Full OCR output for one image."""
     raw_text: str
     lines: list[OcrLine]
-    engine_used: Literal["tesseract", "rapidocr", "combined"]
+    engine_used: Literal["tesseract", "rapidocr", "combined", "mlkit"]
     mean_confidence: float
     needs_manual_review: bool
     tesseract_confidence: float | None = None
     fallback_confidence: float | None = None
+
+    @classmethod
+    def from_client_text(cls, text: str) -> OcrResult:
+        """Build an OcrResult from OCR text produced on the client device
+        (Google ML Kit on-device recognition in the mobile app). Field
+        extraction and the rule engine run unchanged on this text."""
+        clean_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        return cls(
+            raw_text="\n".join(clean_lines),
+            lines=[
+                OcrLine(text=ln, confidence=0.9, bbox=(0, 0, 0, 0), engine="mlkit")
+                for ln in clean_lines
+            ],
+            engine_used="mlkit",
+            mean_confidence=0.9 if clean_lines else 0.0,
+            needs_manual_review=False,
+        )
 
     @property
     def high_confidence_lines(self) -> list[OcrLine]:

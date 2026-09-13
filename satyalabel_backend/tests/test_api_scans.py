@@ -114,3 +114,65 @@ def test_scan_invalid_file_type():
         files={"image": ("document.txt", b"plain text data", "text/plain")},
     )
     assert response.status_code == 415
+
+
+def test_scan_with_client_ocr_text_skips_server_ocr(monkeypatch):
+    """POST /scans with client_ocr_text (ML Kit) must skip server OCR entirely."""
+    def _fail(self, prep):
+        raise AssertionError("server OCR must not run when client_ocr_text is provided")
+
+    monkeypatch.setattr("app.services.ocr_service.OcrService.run", _fail)
+
+    client_text = (
+        "TATA Salt\n"
+        "Net Qty: 1 kg\n"
+        "MRP Rs. 30.00\n"
+        "Mfg: 12 Jan 2026\n"
+        "Best Before: 12 Jan 2027\n"
+        "Manufactured by: Tata Chemicals Ltd\n"
+        "Consumer Care: 1800-209-1100\n"
+        "care@tatachemicals.com\n"
+        "Batch No: TCS-2026-01\n"
+    )
+    response = client.post(
+        "/api/v1/scans/",
+        files={"image": ("test_label.jpg", _make_test_image(), "image/jpeg")},
+        data={"client_ocr_text": client_text},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ocr"]["engine_used"] == "mlkit"
+    assert data["verdict"] == "COMPLIANT"
+    assert data["extracted_fields"]["mrp"]["found"] is True
+    assert "30" in data["extracted_fields"]["mrp"]["value"]
+
+
+def test_scan_with_blank_client_ocr_text_falls_back_to_server_ocr(monkeypatch):
+    """Empty/whitespace client_ocr_text is treated as absent — server OCR runs."""
+    from app.services.ocr_service import OcrLine, OcrResult
+
+    mock_ocr = OcrResult(
+        raw_text="MRP Rs. 10",
+        lines=[OcrLine(text="MRP Rs. 10", confidence=0.9, bbox=(0, 0, 1, 1), engine="tesseract")],
+        engine_used="tesseract",
+        mean_confidence=0.9,
+        needs_manual_review=False,
+    )
+    monkeypatch.setattr("app.services.ocr_service.OcrService.run", lambda self, prep: mock_ocr)
+
+    response = client.post(
+        "/api/v1/scans/",
+        files={"image": ("test_label.jpg", _make_test_image(), "image/jpeg")},
+        data={"client_ocr_text": "   "},
+    )
+    assert response.status_code == 200
+    assert response.json()["ocr"]["engine_used"] == "tesseract"
+
+
+def test_scan_rejects_oversized_client_ocr_text():
+    response = client.post(
+        "/api/v1/scans/",
+        files={"image": ("test_label.jpg", _make_test_image(), "image/jpeg")},
+        data={"client_ocr_text": "x" * 20_001},
+    )
+    assert response.status_code == 400

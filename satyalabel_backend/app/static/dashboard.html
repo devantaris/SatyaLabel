@@ -3,526 +3,755 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SatyaLabel — Enforcement Dashboard</title>
+<title>SatyaLabel — National Legal Metrology Enforcement & Command Center</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <style>
   :root {
+    --navy-dark: #051329;
     --navy: #0b2545;
     --navy-2: #13315c;
     --navy-light: #1d4e89;
     --teal: #0f5257;
-    --saffron: #ff8c42;
+    --teal-glow: #00d2c4;
+    --saffron: #ff9933;
+    --saffron-bright: #ff7700;
+    --green-india: #138808;
     --green: #1a7f4b;
     --red: #c0392b;
-    --amber: #b7791f;
-    --bg: #f4f6f9;
-    --card: #ffffff;
-    --text: #1c2733;
-    --muted: #5c6b7a;
-    --border: #dde3ea;
-    --shadow: 0 4px 12px rgba(11, 37, 69, 0.08);
+    --red-glow: #ff4d4d;
+    --amber: #d97706;
+    --bg: #071322;
+    --card-bg: #0d1e36;
+    --card-border: #1e3a5f;
+    --card-hover: #142a47;
+    --text: #e2e8f0;
+    --text-bright: #ffffff;
+    --muted: #8da4be;
+    --gold: #d4af37;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
-
-  /* ── Login ─────────────────────────────────────────── */
-  #login-view {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 60%, var(--teal) 100%);
-    padding: 20px;
-  }
-  .login-card {
-    background: var(--card); border-radius: 16px; padding: 40px 36px; width: 420px; max-width: 100%;
-    box-shadow: 0 24px 64px rgba(0,0,0,.4);
-  }
-  .login-card h1 { font-size: 22px; color: var(--navy); margin-bottom: 4px; }
-  .login-card p.sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
-  .login-card label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 14px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
-  .login-card input {
-    width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px;
-    transition: border-color .15s, box-shadow .15s;
-  }
-  .login-card input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15,82,87,.2); }
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px;
-    font-weight: 600; cursor: pointer; transition: all .15s;
-  }
-  .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .btn:active { transform: translateY(0); }
-  .btn-primary { background: var(--navy); color: #fff; width: 100%; margin-top: 22px; padding: 13px; font-size: 14px; border-radius: 10px; }
-  .login-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 16px; }
-  .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .brand-mark {
-    width: 44px; height: 44px; border-radius: 12px; flex: none;
-    background: conic-gradient(var(--saffron) 0 33%, #ffffff 33% 66%, var(--green) 66% 100%);
-    display: grid; place-items: center; font-size: 22px; box-shadow: inset 0 0 0 3px rgba(11,37,69,.9);
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+    overflow-x: hidden;
   }
 
-  /* ── Dashboard shell ───────────────────────────────── */
-  #dash-view { display: none; }
-  header.topbar {
-    background: var(--navy); color: #fff; padding: 12px 24px;
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
-    position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  /* ── Indian National Header Strip ──────────────────── */
+  .tricolor-ribbon {
+    height: 4px; width: 100%;
+    background: linear-gradient(90deg, #ff9933 0% 33.3%, #ffffff 33.3% 66.6%, #138808 66.6% 100%);
   }
-  header.topbar .title { display: flex; align-items: center; gap: 12px; }
-  header.topbar h1 { font-size: 18px; font-weight: 700; letter-spacing: .02em; }
-  header.topbar .title small { display: block; font-size: 10.5px; opacity: .8; font-weight: 500; letter-spacing: .06em; }
-  .topbar-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .nav-btn {
-    background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.18);
-    border-radius: 8px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; cursor: pointer;
-    transition: all .15s; display: inline-flex; align-items: center; gap: 5px;
+  .gov-utility-bar {
+    background: #030a16; color: #a0aec0; padding: 5px 24px; font-size: 11px;
+    display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,.07);
   }
-  .nav-btn:hover { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.35); }
-  .topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .chip-group { display: inline-flex; background: rgba(0,0,0,.25); padding: 2px; border-radius: 999px; }
-  .chip {
-    border: none; background: transparent; color: rgba(255,255,255,.8);
-    border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-weight: 600;
-    transition: all .15s;
-  }
-  .chip:hover { color: #fff; }
-  .chip.active { background: var(--saffron); color: var(--navy); }
-  .btn-action { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.2); }
-  .btn-action:hover { background: rgba(255,255,255,.24); }
-  .btn-logout { background: rgba(192,57,43,.8); color: #fff; }
-  .btn-logout:hover { background: rgba(192,57,43,1); }
+  .gov-utility-left { display: flex; align-items: center; gap: 14px; }
+  .gov-utility-left span { display: inline-flex; align-items: center; gap: 6px; }
+  .gov-utility-right { display: flex; align-items: center; gap: 14px; }
+  .gov-clock { font-family: monospace; font-weight: 700; color: #cbd5e0; }
 
-  main { max-width: 1400px; margin: 0 auto; padding: 20px 24px 60px; }
+  /* ── Main Government Directorate Header ────────────── */
+  header.gov-masthead {
+    background: linear-gradient(180deg, #091a33 0%, var(--navy-dark) 100%);
+    border-bottom: 1px solid #1a365d; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5); position: sticky; top: 0; z-index: 1000;
+  }
+  .emblem-group { display: flex; align-items: center; gap: 16px; }
+  .ashok-emblem {
+    width: 44px; height: 52px; flex: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+  }
+  .title-hierarchy { border-left: 2px solid rgba(255,255,255,.18); padding-left: 14px; }
+  .gov-hindi { font-size: 12px; color: var(--saffron); font-weight: 600; letter-spacing: .02em; }
+  .gov-dept { font-size: 11px; color: #cbd5e1; text-transform: uppercase; letter-spacing: .05em; }
+  .gov-portal-title {
+    font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: .02em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-badge-live {
+    background: rgba(26, 127, 75, 0.25); border: 1px solid #1a7f4b; color: #4ade80;
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 5px; text-transform: uppercase;
+  }
+  .pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: blink 1.5s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
 
-  /* ── Sub-header banner ─────────────────────────────── */
-  .sub-header {
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
-    margin-bottom: 20px; padding: 14px 20px; background: #fff; border-radius: 12px;
-    border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(16,36,62,.04);
+  .nav-actions-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .gov-nav-btn {
+    background: rgba(255,255,255,.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,.16);
+    border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    transition: all .2s; display: inline-flex; align-items: center; gap: 6px;
   }
-  .sub-header .info { display: flex; align-items: center; gap: 12px; }
-  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; display: inline-block; box-shadow: 0 0 0 3px rgba(46,204,113,.25); }
-  .sub-header .updated { font-size: 12px; color: var(--muted); }
+  .gov-nav-btn:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); color: #fff; transform: translateY(-1px); }
+  .gov-nav-btn.gold-accent { border-color: var(--gold); color: #fef08a; background: rgba(212,175,55,.12); }
+  .gov-nav-btn.gold-accent:hover { background: rgba(212,175,55,.25); }
 
-  /* ── Stat cards ────────────────────────────────────── */
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
-  .stat {
-    background: var(--card); border-radius: 14px; padding: 16px 18px;
-    border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(16,36,62,.04);
-    position: relative; overflow: hidden; transition: transform .15s, box-shadow .15s;
-    cursor: default;
+  /* ── Live National Ticker ──────────────────────────── */
+  .command-ticker {
+    background: #020914; border-bottom: 1px solid #172a45; padding: 6px 20px; font-size: 12px;
+    display: flex; align-items: center; gap: 12px; overflow: hidden;
   }
-  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-  .stat .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .stat .lbl { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
-  .stat .icon { font-size: 18px; opacity: .8; }
-  .stat .num { font-size: 28px; font-weight: 800; line-height: 1.1; margin-bottom: 4px; }
-  .stat .sub-text { font-size: 11px; color: var(--muted); }
-  .num.total { color: var(--navy); } .num.bad { color: var(--red); }
-  .num.warn { color: var(--amber); } .num.good { color: var(--green); }
-  .num.plain { color: var(--navy-light); }
+  .ticker-badge {
+    background: #e11d48; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 8px;
+    border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; flex: none;
+    box-shadow: 0 0 10px rgba(225,29,72,.5);
+  }
+  .ticker-content {
+    white-space: nowrap; overflow: hidden; color: #94a3b8; font-size: 12px;
+    animation: marquee 35s linear infinite; display: inline-block;
+  }
+  @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 
-  /* ── Panel & Map ───────────────────────────────────── */
-  .panel {
-    background: var(--card); border-radius: 14px; border: 1px solid var(--border);
-    box-shadow: 0 1px 4px rgba(16,36,62,.05); margin-bottom: 24px; overflow: hidden;
+  /* ── Main Container ────────────────────────────────── */
+  main.control-center-body { max-width: 1560px; margin: 0 auto; padding: 22px 24px 80px; }
+
+  /* ── Command HUD Hero ──────────────────────────────── */
+  .command-hud-hero {
+    background: linear-gradient(135deg, rgba(11,37,69,.9) 0%, rgba(15,82,87,.6) 50%, rgba(5,19,41,.9) 100%);
+    border: 1px solid var(--card-border); border-radius: 16px; padding: 24px 28px;
+    margin-bottom: 22px; position: relative; overflow: hidden; box-shadow: 0 12px 36px rgba(0,0,0,.4);
   }
-  .panel-head {
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
-    padding: 14px 20px; border-bottom: 1px solid var(--border); background: #fafbfc;
+  .command-hud-hero::before {
+    content: ""; position: absolute; top: -50%; right: -20%; width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,210,196,.12) 0%, transparent 70%); pointer-events: none;
   }
-  .panel-head h2 { font-size: 15px; color: var(--navy); font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .panel-head .hint { font-size: 12px; color: var(--muted); }
+  .hero-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; position: relative; z-index: 2; }
+  .hero-text h2 { font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: .02em; margin-bottom: 6px; }
+  .hero-text p { font-size: 13.5px; color: #cbd5e1; max-width: 820px; line-height: 1.6; }
+  .hero-meta { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .hud-chip {
+    background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.15); padding: 5px 12px;
+    border-radius: 6px; font-size: 11.5px; font-family: monospace; color: #93c5fd;
+  }
+  .hud-chip.alert { border-color: #f87171; color: #fca5a5; background: rgba(239,68,68,.15); }
+  .hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ── Stat Command Grid ─────────────────────────────── */
+  .telemetry-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 22px;
+  }
+  .telemetry-card {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px;
+    padding: 16px 18px; position: relative; overflow: hidden; transition: all .2s;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  }
+  .telemetry-card:hover { border-color: var(--teal-glow); transform: translateY(-2px); background: var(--card-hover); }
+  .telemetry-card::after {
+    content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: transparent;
+  }
+  .telemetry-card.danger::after { background: var(--red); }
+  .telemetry-card.warning::after { background: var(--amber); }
+  .telemetry-card.success::after { background: var(--green); }
+  .telemetry-card.info::after { background: var(--teal-glow); }
+
+  .telemetry-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .telemetry-label { font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+  .telemetry-icon { font-size: 18px; }
+  .telemetry-val { font-size: 30px; font-weight: 800; line-height: 1.1; margin-bottom: 4px; font-family: monospace; color: #fff; }
+  .telemetry-val.red { color: #f87171; text-shadow: 0 0 12px rgba(248,113,113,.4); }
+  .telemetry-val.amber { color: #fbbf24; }
+  .telemetry-val.green { color: #4ade80; }
+  .telemetry-val.cyan { color: #38bdf8; }
+  .telemetry-sub { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 4px; }
+
+  /* ── Interactive Map Operations Room ───────────────── */
+  .ops-map-panel {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px;
+    overflow: hidden; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+  .ops-map-header {
+    background: #09172c; border-bottom: 1px solid var(--card-border); padding: 14px 22px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+  }
+  .ops-title-group h3 { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .ops-title-group span { font-size: 12px; color: var(--muted); }
   
-  /* Map Toolbar */
-  .map-toolbar {
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
-    padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--border); font-size: 12.5px;
+  .ops-map-bar {
+    background: #071322; border-bottom: 1px solid #182e4a; padding: 10px 20px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px;
   }
-  .map-tools-left, .map-tools-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .toggle-btn {
-    border: 1px solid var(--border); background: #fff; border-radius: 6px; padding: 5px 10px;
-    font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 500;
+  .ops-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ops-btn {
+    background: #0e2440; color: #cbd5e1; border: 1px solid #1f3b60; border-radius: 6px;
+    padding: 5px 11px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 5px;
   }
-  .toggle-btn.active { background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 600; }
-  .shortcut-btn {
-    border: 1px solid var(--border); background: #f8fafc; border-radius: 6px; padding: 4px 8px;
-    font-size: 11.5px; cursor: pointer; color: var(--navy-2);
+  .ops-btn:hover { background: #173860; color: #fff; }
+  .ops-btn.active { background: var(--teal); border-color: var(--teal-glow); color: #fff; box-shadow: 0 0 8px rgba(0,210,196,.3); }
+  .sector-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,.15); color: #94a3b8;
+    padding: 4px 9px; border-radius: 5px; font-size: 11px; cursor: pointer;
   }
-  .shortcut-btn:hover { background: #eef2f6; }
-  .map-stats-pill {
-    background: #e8f4f8; color: var(--teal); padding: 4px 10px; border-radius: 6px;
-    font-size: 11.5px; font-weight: 600;
+  .sector-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .map-telemetry-badge {
+    background: rgba(15,82,87,.3); border: 1px solid var(--teal); color: #5eead4;
+    padding: 4px 10px; border-radius: 6px; font-family: monospace; font-size: 11.5px; font-weight: 600;
   }
 
-  #map { height: 500px; width: 100%; z-index: 1; }
+  #map { height: 530px; width: 100%; background: #071322; }
 
-  /* ── Tables & Filters ──────────────────────────────── */
-  .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  @media (max-width: 960px) { .tables { grid-template-columns: 1fr; } }
-  
-  .table-controls {
-    padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  }
-  .table-search {
-    width: 100%; max-width: 280px; padding: 6px 10px; font-size: 12px;
-    border: 1px solid var(--border); border-radius: 6px;
-  }
-  .table-search:focus { outline: none; border-color: var(--teal); }
+  /* ── Tables & Watchlist Grid ───────────────────────── */
+  .intel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 1080px) { .intel-grid { grid-template-columns: 1fr; } }
 
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .intel-panel {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px;
+    overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.25);
+  }
+  .intel-head {
+    background: #09172c; border-bottom: 1px solid var(--card-border); padding: 14px 18px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .intel-head h4 { font-size: 14.5px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .intel-search-bar {
+    padding: 10px 16px; background: #071322; border-bottom: 1px solid var(--card-border);
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  .intel-search {
+    width: 100%; max-width: 320px; padding: 7px 12px; font-size: 12px;
+    background: #0d1e36; border: 1px solid #1f3b60; border-radius: 8px; color: #fff;
+  }
+  .intel-search:focus { outline: none; border-color: var(--teal-glow); box-shadow: 0 0 8px rgba(0,210,196,.2); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th {
-    text-align: left; padding: 10px 14px; background: #f0f3f7; color: var(--muted);
-    font-size: 11px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; z-index: 2;
+    text-align: left; padding: 11px 14px; background: #081629; color: #94a3b8;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .05em; position: sticky; top: 0; z-index: 2;
+    border-bottom: 1px solid var(--card-border);
   }
-  td { padding: 11px 14px; border-top: 1px solid var(--border); }
-  tbody tr:hover { background: #f8fafc; }
-  .tbl-wrap { max-height: 380px; overflow-y: auto; }
-  .badge { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 700; }
-  .badge.bad { background: #fdecea; color: var(--red); }
-  .badge.warn { background: #fdf6e3; color: var(--amber); }
-  .badge.good { background: #e8f5ee; color: var(--green); }
-  .rate-bar {
-    width: 60px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px;
-  }
-  .rate-fill { height: 100%; background: var(--red); }
-  .empty { padding: 36px 20px; text-align: center; color: var(--muted); font-size: 13px; }
-  .loading { padding: 70px; text-align: center; color: var(--muted); }
-  .spin {
-    width: 28px; height: 28px; margin: 0 auto 12px; border-radius: 50%;
-    border: 3px solid var(--border); border-top-color: var(--navy); animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  
-  .toast {
-    position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: #fff;
-    padding: 12px 20px; border-radius: 10px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
-    opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9999;
-  }
-  .toast.show { opacity: 1; }
-  .legend {
-    background: rgba(255,255,255,.94); border-radius: 8px; padding: 10px 14px; font-size: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.15); line-height: 1.8; border: 1px solid var(--border);
-  }
-  .legend b { display: block; margin-bottom: 3px; font-size: 11.5px; text-transform: uppercase; color: var(--navy); }
+  td { padding: 11px 14px; border-top: 1px solid rgba(255,255,255,.05); color: #cbd5e1; }
+  tbody tr:hover { background: rgba(255,255,255,.03); }
+  .tbl-scroll { max-height: 380px; overflow-y: auto; }
 
-  /* ── Modal system ──────────────────────────────────── */
+  .badge { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+  .badge.bad { background: rgba(220,38,38,.2); color: #f87171; border: 1px solid rgba(220,38,38,.4); }
+  .badge.warn { background: rgba(217,119,6,.2); color: #fbbf24; border: 1px solid rgba(217,119,6,.4); }
+  .badge.good { background: rgba(22,163,74,.2); color: #4ade80; border: 1px solid rgba(22,163,74,.4); }
+  .rate-track {
+    width: 55px; height: 5px; background: #1e3a5f; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px;
+  }
+  .rate-bar-fill { height: 100%; background: #ef4444; }
+
+  /* ── Modals ────────────────────────────────────────── */
   .modal-backdrop {
-    display: none; position: fixed; inset: 0; background: rgba(11,37,69,.55);
-    backdrop-filter: blur(3px); z-index: 2000; align-items: center; justify-content: center; padding: 20px;
+    display: none; position: fixed; inset: 0; background: rgba(2,9,20,.8);
+    backdrop-filter: blur(5px); z-index: 3000; align-items: center; justify-content: center; padding: 20px;
   }
   .modal-backdrop.open { display: flex; }
-  .modal-card {
-    background: #fff; border-radius: 16px; width: 800px; max-width: 100%; max-height: 85vh;
-    display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,.35);
-    overflow: hidden; animation: pop .2s ease-out;
+  .modal-window {
+    background: #0a1b32; border: 1px solid #1f426b; border-radius: 16px; width: 840px; max-width: 100%; max-height: 88vh;
+    display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,.7); overflow: hidden;
+    color: #e2e8f0; animation: popUp .2s ease-out;
   }
-  @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes popUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .modal-head {
-    padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center;
-    justify-content: space-between; background: #fafbfc;
+    padding: 16px 24px; border-bottom: 1px solid #1a365d; display: flex; align-items: center;
+    justify-content: space-between; background: #071426;
   }
-  .modal-head h3 { font-size: 17px; color: var(--navy); font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .modal-close { background: transparent; border: none; font-size: 22px; cursor: pointer; color: var(--muted); }
-  .modal-close:hover { color: var(--text); }
-  .modal-body { padding: 24px; overflow-y: auto; font-size: 13.5px; }
-  .modal-footer { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: #fafbfc; }
+  .modal-head h3 { font-size: 16px; color: #ffffff; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .modal-close { background: transparent; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; }
+  .modal-close:hover { color: #fff; }
+  .modal-body { padding: 24px; overflow-y: auto; font-size: 13px; }
+  .modal-foot { padding: 14px 24px; border-top: 1px solid #1a365d; display: flex; justify-content: flex-end; gap: 10px; background: #071426; }
 
-  /* Rules list inside modal */
-  .rule-item {
-    border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
-    background: #fff; transition: border-color .15s;
+  /* Rules in modal */
+  .rule-card {
+    background: #0d223f; border: 1px solid #1c3d66; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
   }
-  .rule-item:hover { border-color: var(--teal); }
-  .rule-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-  .rule-num { font-weight: 700; color: var(--teal); font-size: 14px; }
-  .rule-tag { background: #eef5f5; color: var(--teal); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-  .rule-title { font-weight: 600; margin-bottom: 4px; color: var(--navy); }
-  .rule-desc { color: var(--text); font-size: 12.5px; margin-bottom: 8px; }
-  .rule-penalty { font-size: 12px; color: var(--red); background: #fdf2f2; padding: 6px 10px; border-radius: 6px; display: flex; gap: 6px; }
+  .rule-card:hover { border-color: var(--teal-glow); }
+  .rule-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .rule-citation { font-family: monospace; font-weight: 800; color: #38bdf8; font-size: 13.5px; }
+  .rule-tag { background: rgba(15,82,87,.4); color: #5eead4; border: 1px solid var(--teal); padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600; }
+  .rule-text { color: #cbd5e1; font-size: 12.5px; line-height: 1.5; margin-bottom: 8px; }
+  .rule-statutory-penalty { font-size: 12px; color: #fca5a5; background: rgba(220,38,38,.15); border: 1px solid rgba(220,38,38,.3); padding: 6px 10px; border-radius: 6px; }
 
-  /* Checklist inside modal */
-  .chk-row {
+  /* Checklist rows */
+  .chk-item {
     display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 8px;
-    border: 1px solid var(--border); margin-bottom: 8px; cursor: pointer;
+    border: 1px solid #1b385e; margin-bottom: 8px; background: #091a31; cursor: pointer;
   }
-  .chk-row:hover { background: #f8fafc; }
-  .chk-box { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--teal); cursor: pointer; }
-  .chk-text strong { display: block; font-size: 13px; color: var(--navy); }
-  .chk-text span { font-size: 12px; color: var(--muted); }
-  .progress-wrap { background: #e2e8f0; border-radius: 999px; height: 8px; overflow: hidden; margin: 12px 0 20px; }
-  .progress-fill { background: var(--teal); height: 100%; width: 0%; transition: width .2s; }
+  .chk-item:hover { background: #0f284a; }
+  .chk-input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--teal); cursor: pointer; }
+  .chk-details strong { display: block; color: #f8fafc; font-size: 13px; }
+  .chk-details span { color: #94a3b8; font-size: 12px; }
+  .meter-bar { height: 8px; background: #132b49; border-radius: 999px; overflow: hidden; margin: 12px 0 18px; }
+  .meter-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--teal-glow)); width: 0%; transition: width .25s; }
+
+  /* Toast notification */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: #08172c; color: #fff;
+    border: 1px solid #234875; padding: 12px 20px; border-radius: 10px; font-size: 13.5px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.6); opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9999;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Government footer */
+  footer.gov-footer {
+    background: #030a16; border-top: 1px solid #162c47; padding: 36px 24px 24px;
+    color: #94a3b8; font-size: 12px;
+  }
+  .footer-inner { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 30px; }
+  @media (max-width: 900px) { .footer-inner { grid-template-columns: 1fr; } }
+  .footer-col h5 { color: #fff; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .footer-col ul { list-style: none; }
+  .footer-col ul li { margin-bottom: 6px; }
+  .footer-col ul li a { color: #8da4be; text-decoration: none; }
+  .footer-col ul li a:hover { color: #38bdf8; text-decoration: underline; }
+  .footer-bottom {
+    max-width: 1400px; margin: 24px auto 0; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.07);
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 11px;
+  }
+
+  /* Login modal / view */
+  #login-view {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at top center, #0f3057 0%, #051329 80%); padding: 20px;
+  }
+  .login-card {
+    background: #0a1b32; border: 1px solid #1f426b; border-radius: 18px; padding: 42px 38px; width: 440px; max-width: 100%;
+    box-shadow: 0 24px 64px rgba(0,0,0,.7);
+  }
+  .login-card h1 { font-size: 20px; color: #fff; margin-bottom: 4px; }
+  .login-card label { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: .06em; }
+  .login-card input {
+    width: 100%; padding: 11px 14px; background: #071322; border: 1px solid #1d3c63; border-radius: 10px; font-size: 14px; color: #fff;
+  }
+  .login-card input:focus { outline: none; border-color: var(--teal-glow); box-shadow: 0 0 10px rgba(0,210,196,.3); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--teal) 0%, #15737a 100%); color: #fff; border: 1px solid var(--teal-glow);
+    width: 100%; margin-top: 22px; padding: 13px; font-size: 14px; font-weight: 700; border-radius: 10px; cursor: pointer;
+  }
+  .btn-primary:hover { filter: brightness(1.15); box-shadow: 0 0 16px rgba(0,210,196,.4); }
+  .login-error { color: #f87171; font-size: 12.5px; margin-top: 12px; min-height: 16px; }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════ LOGIN ═══════════════ -->
+<!-- ═══════════════ NATIONAL TRICOLOR RIBBON ═══════════════ -->
+<div class="tricolor-ribbon"></div>
+<div class="gov-utility-bar">
+  <div class="gov-utility-left">
+    <span>🇮🇳 <strong>भारत सरकार</strong> | Government of India</span>
+    <span>उपभोक्ता मामले, खाद्य और सार्वजनिक वितरण मंत्रालय</span>
+  </div>
+  <div class="gov-utility-right">
+    <span class="gov-clock" id="live-ist-clock">--:--:-- IST</span>
+    <span>Central Consumer Protection Authority (CCPA)</span>
+    <span>Accessibility: A- A A+</span>
+  </div>
+</div>
+
+<!-- ═══════════════ LOGIN VIEW (OFFICER ACCESS) ═══════════════ -->
 <div id="login-view">
   <form class="login-card" id="login-form">
-    <div class="brand-row">
-      <div class="brand-mark">⚖</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+      <!-- SVG Lion Capital Emblem -->
+      <svg class="ashok-emblem" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 5 C30 5 20 20 20 40 C20 60 35 75 40 85 L50 95 L60 85 C65 75 80 60 80 40 C80 20 70 5 50 5 Z" fill="#d4af37" opacity="0.9"/>
+        <circle cx="50" cy="40" r="14" fill="#0b2545" stroke="#d4af37" stroke-width="2"/>
+        <circle cx="50" cy="40" r="3" fill="#d4af37"/>
+        <rect x="25" y="98" width="50" height="12" rx="3" fill="#d4af37"/>
+        <text x="50" y="107" font-size="7" font-weight="bold" fill="#0b2545" text-anchor="middle">सत्यमेव जयते</text>
+      </svg>
       <div>
-        <h1>SatyaLabel</h1>
-        <p style="font-size:12px;color:var(--muted)">Department of Consumer Affairs · Legal Metrology Division</p>
+        <h1>SatyaLabel Command Core</h1>
+        <p style="font-size:11.5px;color:var(--muted)">Legal Metrology Enforcement & Surveillance Console</p>
       </div>
     </div>
-    <p class="sub">Legal Metrology (Packaged Commodities) Rules, 2011 — violation intelligence platform. Inspector and administrative enforcement access only.</p>
-    <label for="email">Official government email</label>
-    <input type="email" id="email" autocomplete="username" required placeholder="inspector@gov.in">
-    <label for="password">Password</label>
+    <p style="font-size:12.5px;color:#94a3b8;margin-bottom:20px;line-height:1.5">
+      Restricted access for Legal Metrology Inspectors, State Controllers, and Central Consumer Protection Officers.
+    </p>
+    <label for="email">Inspector / Official Email</label>
+    <input type="email" id="email" autocomplete="username" required placeholder="officer@gov.in">
+    <label for="password">Security Password</label>
     <input type="password" id="password" autocomplete="current-password" required placeholder="••••••••">
     <div class="login-error" id="login-error"></div>
-    <button type="submit" class="btn btn-primary" id="login-btn">Sign in to Enforcement Console</button>
+    <button type="submit" class="btn-primary" id="login-btn">Authenticate & Access Command Center</button>
+    <div style="margin-top:16px;text-align:center">
+      <button type="button" onclick="bypassToCitizenPortal()" style="background:none;border:none;color:#38bdf8;font-size:12px;cursor:pointer;text-decoration:underline">
+        Preview Public Citizen Portal & Guidelines
+      </button>
+    </div>
   </form>
 </div>
 
-<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<!-- ═══════════════ NATIONAL COMMAND CENTER ═══════════════ -->
 <div id="dash-view">
-  <header class="topbar">
-    <div class="title">
-      <div class="brand-mark" style="width:34px;height:34px;font-size:17px">⚖</div>
-      <div>
-        <h1>SatyaLabel — Enforcement Dashboard</h1>
-        <small>DEPARTMENT OF CONSUMER AFFAIRS · LEGAL METROLOGY DIVISION</small>
+  <!-- Government Masthead -->
+  <header class="gov-masthead">
+    <div class="emblem-group">
+      <!-- SVG Lion Capital of India -->
+      <svg class="ashok-emblem" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 5 C30 5 20 20 20 40 C20 60 35 75 40 85 L50 95 L60 85 C65 75 80 60 80 40 C80 20 70 5 50 5 Z" fill="#d4af37" opacity="0.95"/>
+        <circle cx="50" cy="40" r="15" fill="#051329" stroke="#d4af37" stroke-width="2"/>
+        <circle cx="50" cy="40" r="3" fill="#d4af37"/>
+        <rect x="22" y="98" width="56" height="13" rx="3" fill="#d4af37"/>
+        <text x="50" y="108" font-size="7.5" font-weight="bold" fill="#051329" text-anchor="middle">सत्यमेव जयते</text>
+      </svg>
+      <div class="title-hierarchy">
+        <div class="gov-hindi">उपभोक्ता मामले विभाग · विधिक मापविज्ञान प्रभाग</div>
+        <div class="gov-portal-title">
+          SatyaLabel™ National Enforcement Control Center
+          <span class="status-badge-live"><span class="pulse-dot"></span> Grid Active</span>
+        </div>
+        <div class="gov-dept">SIH 2026 | Smart India Hackathon · Problem SIH26034 | Team The Hippos</div>
       </div>
     </div>
 
-    <nav class="topbar-nav">
-      <button class="nav-btn" id="open-rules-btn">⚖️ LM(PC) Rules 2011</button>
-      <button class="nav-btn" id="open-checklist-btn">📋 Field Checklist</button>
-      <button class="nav-btn" id="open-grievance-btn">🏛️ Grievance (1915)</button>
-    </nav>
-
-    <div class="topbar-actions">
-      <div class="chip-group">
-        <button class="chip" data-days="7">7d</button>
-        <button class="chip" data-days="30">30d</button>
-        <button class="chip active" data-days="">All</button>
-      </div>
-      <button class="btn btn-action" id="refresh-btn" title="Refresh Live Data">🔄 Refresh</button>
-      <button class="btn btn-action" id="export-btn" title="Download CSV evidence bundle">⬇ Export CSV</button>
-      <button class="btn btn-logout" id="logout-btn">Sign out</button>
+    <div class="nav-actions-group">
+      <button class="gov-nav-btn gold-accent" id="open-rules-btn">⚖️ LM(PC) Rules 2011 Code</button>
+      <button class="gov-nav-btn" id="open-checklist-btn">📋 Field Raid Checklist</button>
+      <button class="gov-nav-btn" id="open-grievance-btn">🏛️ Grievance 1915 Desk</button>
+      <button class="gov-nav-btn" id="refresh-btn">🔄 Live Sync</button>
+      <button class="gov-nav-btn" id="export-btn">⬇ Export CSV Evidence</button>
+      <button class="gov-nav-btn" id="logout-btn" style="border-color:#f87171;color:#fca5a5">Sign Out</button>
     </div>
   </header>
 
-  <main>
-    <!-- Sub-header status bar -->
-    <div class="sub-header">
-      <div class="info">
-        <span class="status-dot"></span>
-        <strong style="font-size:13.5px;color:var(--navy)">Enforcement Intelligence Active</strong>
-        <span style="font-size:12px;color:var(--muted)">· Central Consumer Protection Authority (CCPA) Integration</span>
-      </div>
-      <div class="updated" id="last-updated-text">Connecting to scan engine…</div>
+  <!-- Live Command Ticker -->
+  <div class="command-ticker">
+    <span class="ticker-badge">LIVE SURVEILLANCE</span>
+    <div class="ticker-content">
+      🚨 NATIONAL DIRECTIVE: Mandatory Unit Sale Price Rule 6(1)(da) audit drive active across all retail chains · 
+      ⚖️ SECTION 36 LEGAL ENFORCEMENT: Seizure protocols enabled for scratched MRP and altered weight declarations · 
+      🛰️ SPATIAL GRID: Live PostGIS telemetry actively ingesting high-resolution packaged commodity scans · 
+      📞 NATIONAL CONSUMER HELPLINE 1915: Direct digital evidence packet forwarding active · 
+      🇮🇳 SIH 2026 MINISTRY OF CONSUMER AFFAIRS, FOOD & PUBLIC DISTRIBUTION
     </div>
+  </div>
 
-    <!-- Key metric cards -->
-    <div class="cards" id="cards">
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Total Scans</div><div class="icon">📊</div></div>
-        <div class="num total" id="s-total">—</div>
-        <div class="sub-text">Packaged goods scanned</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Non-compliant</div><div class="icon">🚨</div></div>
-        <div class="num bad" id="s-noncomp">—</div>
-        <div class="sub-text" id="s-noncomp-sub">Confirmed violations</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Needs Verify</div><div class="icon">⚠️</div></div>
-        <div class="num warn" id="s-needsver">—</div>
-        <div class="sub-text">Ambiguous / missing dates</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Compliant</div><div class="icon">✅</div></div>
-        <div class="num good" id="s-comp">—</div>
-        <div class="sub-text" id="s-comp-sub">Fully adhering labels</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Needs Review</div><div class="icon">🔍</div></div>
-        <div class="num plain" id="s-review">—</div>
-        <div class="sub-text">Low OCR confidence</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Raid Sessions</div><div class="icon">📦</div></div>
-        <div class="num plain" id="s-sessions">—</div>
-        <div class="sub-text">Enforcement operations</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top"><div class="lbl">Scans (24 h)</div><div class="icon">⏱️</div></div>
-        <div class="num plain" id="s-24h">—</div>
-        <div class="sub-text">Recent field uploads</div>
+  <main class="control-center-body">
+    <!-- Command HUD Hero -->
+    <div class="command-hud-hero">
+      <div class="hero-content">
+        <div class="hero-text">
+          <h2>NATIONAL COMPLIANCE & VIOLATION INTELLIGENCE GRID</h2>
+          <p>
+            Central monitoring console for Legal Metrology (Packaged Commodities) Rules, 2011 enforcement.
+            Synthesizing field scans, automated OCR diagnostics, violation rule citations, and geo-spatial infraction heatmaps to protect 1.4 billion Indian consumers against unfair trade practices and deceptive packaging.
+          </p>
+          <div class="hero-meta">
+            <span class="hud-chip alert">🚨 NATIONAL ADVISORY: ELEVATED RISK</span>
+            <span class="hud-chip">🛰️ SATELLITE GNSS EVIDENCE ACTIVE</span>
+            <span class="hud-chip">🔒 SHA-256 TAMPER-PROOF PIPELINE</span>
+            <span class="hud-chip" id="time-window-chip">WINDOW: ALL TIME</span>
+          </div>
+        </div>
+
+        <div class="hero-ctas">
+          <div style="display:inline-flex;background:rgba(0,0,0,.4);padding:3px;border-radius:8px;border:1px solid rgba(255,255,255,.1)">
+            <button class="gov-nav-btn chip" data-days="7" style="border:none;padding:5px 12px">7 Days</button>
+            <button class="gov-nav-btn chip" data-days="30" style="border:none;padding:5px 12px">30 Days</button>
+            <button class="gov-nav-btn chip active" data-days="" style="border:none;padding:5px 12px;background:var(--teal)">All Records</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Map panel with spatial controls -->
-    <div class="panel">
-      <div class="panel-head">
-        <h2>🗺️ Violation Hotspots — Live Spatial Intelligence</h2>
-        <span class="hint">PostGIS grid-binned · geotagged scans with GPS coordinates</span>
-      </div>
-      
-      <div class="map-toolbar">
-        <div class="map-tools-left">
-          <span style="font-weight:600;font-size:12px;color:var(--navy)">Layers:</span>
-          <button class="toggle-btn active" id="toggle-heat">🔥 Heatmap</button>
-          <button class="toggle-btn active" id="toggle-markers">📍 Markers</button>
-          <button class="toggle-btn" id="toggle-highrisk">⚠️ High-Risk Only (&gt;50%)</button>
+    <!-- Telemetry Stats Cards -->
+    <div class="telemetry-grid">
+      <div class="telemetry-card info">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Total Commodities Audited</span>
+          <span class="telemetry-icon">📊</span>
         </div>
-        <div class="map-tools-right">
-          <span style="font-size:11.5px;color:var(--muted)">Quick View:</span>
-          <button class="shortcut-btn" onclick="panMap(22.8, 79.6, 5)">🇮🇳 All India</button>
-          <button class="shortcut-btn" onclick="panMap(28.6139, 77.2090, 11)">🏛️ Delhi NCR</button>
-          <button class="shortcut-btn" onclick="panMap(19.0760, 72.8777, 11)">🏙️ Mumbai</button>
-          <button class="shortcut-btn" onclick="panMap(12.9716, 77.5946, 11)">🌴 Bengaluru</button>
-          <span class="map-stats-pill" id="map-stats-badge">0 cells</span>
-        </div>
+        <div class="telemetry-val cyan" id="s-total">—</div>
+        <div class="telemetry-sub">Scanned packages recorded</div>
       </div>
 
-      <div id="map"><div class="loading"><div class="spin"></div>Connecting to scan database…</div></div>
+      <div class="telemetry-card danger">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Non-Compliant Violations</span>
+          <span class="telemetry-icon">🚨</span>
+        </div>
+        <div class="telemetry-val red" id="s-noncomp">—</div>
+        <div class="telemetry-sub" id="s-noncomp-sub">Confirmed Rule 6 infractions</div>
+      </div>
+
+      <div class="telemetry-card warning">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Needs Physical Verification</span>
+          <span class="telemetry-icon">⚠️</span>
+        </div>
+        <div class="telemetry-val amber" id="s-needsver">—</div>
+        <div class="telemetry-sub">Ambiguous dates or font sizes</div>
+      </div>
+
+      <div class="telemetry-card success">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Fully Compliant Labels</span>
+          <span class="telemetry-icon">✅</span>
+        </div>
+        <div class="telemetry-val green" id="s-comp">—</div>
+        <div class="telemetry-sub" id="s-comp-sub">100% adherence to LM Rules</div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Flagged For Review</span>
+          <span class="telemetry-icon">🔍</span>
+        </div>
+        <div class="telemetry-val" id="s-review">—</div>
+        <div class="telemetry-sub">Low OCR confidence triggers</div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Batch Raid Operations</span>
+          <span class="telemetry-icon">📦</span>
+        </div>
+        <div class="telemetry-val" id="s-sessions">—</div>
+        <div class="telemetry-sub">Inspector squad raid IDs</div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="telemetry-top">
+          <span class="telemetry-label">Last 24 Hours Intake</span>
+          <span class="telemetry-icon">⏱️</span>
+        </div>
+        <div class="telemetry-val" id="s-24h">—</div>
+        <div class="telemetry-sub">Active field submissions</div>
+      </div>
     </div>
 
-    <!-- Tables for offenders and districts -->
-    <div class="tables">
-      <div class="panel">
-        <div class="panel-head">
-          <h2>🏢 Repeat-Offender Manufacturers</h2>
-          <span class="hint">Ranked by non-compliant scans</span>
+    <!-- Map Operations Room -->
+    <div class="ops-map-panel">
+      <div class="ops-map-header">
+        <div class="ops-title-group">
+          <h3>🗺️ NATIONAL VIOLATION SPATIAL RADAR & HEATMAP</h3>
+          <span>PostGIS grid-binned spatial intelligence · Evidentiary GNSS coordinates from enforcement squads</span>
         </div>
-        <div class="table-controls">
-          <input type="text" class="table-search" id="offender-search" placeholder="Search manufacturer name...">
+        <div class="map-telemetry-badge" id="map-telemetry">Telemetry: Initializing…</div>
+      </div>
+
+      <div class="ops-map-bar">
+        <div class="ops-tools">
+          <span style="color:#94a3b8;font-weight:700">LAYERS:</span>
+          <button class="ops-btn active" id="toggle-heat">🔥 Thermal Heatmap</button>
+          <button class="ops-btn active" id="toggle-markers">📍 Surveillance Blips</button>
+          <button class="ops-btn" id="toggle-highrisk">⚠️ Priority Target Cells (&gt;50%)</button>
+        </div>
+
+        <div class="ops-tools">
+          <span style="color:#94a3b8;font-weight:700">SECTOR JUMP:</span>
+          <button class="sector-btn" onclick="panMap(22.8, 79.6, 5)">🇮🇳 All India</button>
+          <button class="sector-btn" onclick="panMap(28.6139, 77.2090, 11)">🏛️ Delhi NCR</button>
+          <button class="sector-btn" onclick="panMap(19.0760, 72.8777, 11)">🏙️ Mumbai</button>
+          <button class="sector-btn" onclick="panMap(12.9716, 77.5946, 11)">🌴 Bengaluru</button>
+          <button class="sector-btn" onclick="panMap(22.5726, 88.3639, 11)">🌅 Kolkata</button>
+          <button class="sector-btn" onclick="panMap(13.0827, 80.2707, 11)">🌊 Chennai</button>
+        </div>
+      </div>
+
+      <div id="map"></div>
+    </div>
+
+    <!-- Tables Grid -->
+    <div class="intel-grid">
+      <!-- Offenders Watchlist -->
+      <div class="intel-panel">
+        <div class="intel-head">
+          <h4>🏢 REPEAT-OFFENDER MANUFACTURERS WATCHLIST</h4>
+          <span style="font-size:11px;color:#94a3b8">Legal action candidate registry</span>
+        </div>
+        <div class="intel-search-bar">
+          <input type="text" class="intel-search" id="offender-search" placeholder="Filter manufacturer, brand, or packer name...">
           <span style="font-size:11px;color:var(--muted)" id="offender-count">0 items</span>
         </div>
-        <div class="tbl-wrap" id="offenders-wrap"><div class="empty">No data</div></div>
+        <div class="tbl-scroll" id="offenders-wrap">
+          <div style="padding:40px;text-align:center;color:#64748b">Loading manufacturer registry…</div>
+        </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-head">
-          <h2>📍 District-wise Enforcement Activity</h2>
-          <span class="hint">Inspector team contributions</span>
+      <!-- District Readiness Grid -->
+      <div class="intel-panel">
+        <div class="intel-head">
+          <h4>📍 DISTRICT ENFORCEMENT READINESS MATRIX</h4>
+          <span style="font-size:11px;color:#94a3b8">State & district squad performance</span>
         </div>
-        <div class="table-controls">
-          <input type="text" class="table-search" id="district-search" placeholder="Search district name...">
+        <div class="intel-search-bar">
+          <input type="text" class="intel-search" id="district-search" placeholder="Filter district jurisdiction or state...">
           <span style="font-size:11px;color:var(--muted)" id="district-count">0 items</span>
         </div>
-        <div class="tbl-wrap" id="districts-wrap"><div class="empty">No data</div></div>
+        <div class="tbl-scroll" id="districts-wrap">
+          <div style="padding:40px;text-align:center;color:#64748b">Loading district readiness…</div>
+        </div>
       </div>
     </div>
   </main>
+
+  <!-- Official Footer -->
+  <footer class="gov-footer">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <!-- Small SVG Emblem -->
+          <svg style="width:24px;height:30px" viewBox="0 0 100 120" fill="none">
+            <path d="M50 5 C30 5 20 20 20 40 C20 60 35 75 40 85 L50 95 L60 85 C65 75 80 60 80 40 C80 20 70 5 50 5 Z" fill="#d4af37"/>
+          </svg>
+          <strong style="color:#fff;font-size:14px">SatyaLabel National Surveillance Directorate</strong>
+        </div>
+        <p style="line-height:1.6;margin-bottom:12px">
+          Official technological platform developed under Smart India Hackathon 2026 (Problem Statement SIH26034) for the Ministry of Consumer Affairs, Food & Public Distribution, Government of India.
+        </p>
+        <p style="font-size:11px;color:#64748b">
+          Complies with the Legal Metrology Act, 2009 and the Legal Metrology (Packaged Commodities) Rules, 2011.
+        </p>
+      </div>
+
+      <div class="footer-col">
+        <h5>Statutory Acts & Regulations</h5>
+        <ul>
+          <li><a href="#" onclick="openModal('rules-modal')">Legal Metrology Act, 2009</a></li>
+          <li><a href="#" onclick="openModal('rules-modal')">LM(PC) Rules, 2011 (As Amended)</a></li>
+          <li><a href="#" onclick="openModal('rules-modal')">Rule 6(1)(da) Unit Sale Price Rules</a></li>
+          <li><a href="#" onclick="openModal('rules-modal')">Consumer Protection Act, 2019</a></li>
+          <li><a href="#" onclick="openModal('rules-modal')">Section 36 & 48 Compounding Provisions</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>Government Portals</h5>
+        <ul>
+          <li><a href="https://consumerhelpline.gov.in" target="_blank" rel="noreferrer">National Consumer Helpline (1915)</a></li>
+          <li><a href="https://edaakhil.nic.in" target="_blank" rel="noreferrer">e-Daakhil Online Consumer Court</a></li>
+          <li><a href="https://consumeraffairs.nic.in" target="_blank" rel="noreferrer">Dept. of Consumer Affairs</a></li>
+          <li><a href="https://data.gov.in" target="_blank" rel="noreferrer">Open Government Data (Data.gov.in)</a></li>
+          <li><a href="https://sih.gov.in" target="_blank" rel="noreferrer">Smart India Hackathon 2026</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>Enforcement Operations</h5>
+        <ul>
+          <li><a href="#" onclick="openModal('checklist-modal')">Field Inspection Protocol</a></li>
+          <li><a href="#" onclick="openModal('grievance-modal')">Escalation & Notice Drafting</a></li>
+          <li><a href="#" onclick="panMap(28.6139, 77.2090, 11)">HQ Command: Delhi NCR</a></li>
+          <li><a href="#" onclick="$('export-btn').click()">Download CSV Dossier</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>© 2026 Government of India · Department of Consumer Affairs · SatyaLabel SIH26034</div>
+      <div>Designed & Deployed for National Consumer Protection · End-to-End Cryptographic Chain of Evidence</div>
+    </div>
+  </footer>
 </div>
 
 <!-- ═══════════════ MODAL: LM(PC) RULES 2011 ═══════════════ -->
 <div class="modal-backdrop" id="rules-modal">
-  <div class="modal-card">
+  <div class="modal-window">
     <div class="modal-head">
-      <h3>⚖️ Legal Metrology (Packaged Commodities) Rules, 2011 Standards</h3>
+      <h3>⚖️ Legal Metrology (Packaged Commodities) Rules, 2011 Statutory Code</h3>
       <button class="modal-close" onclick="closeModal('rules-modal')">&times;</button>
     </div>
     <div class="modal-body">
-      <p style="color:var(--muted);font-size:12.5px;margin-bottom:14px">
-        Mandatory statutory declarations required on every pre-packaged commodity sold in India under the Legal Metrology Act, 2009.
+      <p style="color:#94a3b8;margin-bottom:14px">
+        Mandatory statutory declarations enforceable on every pre-packaged commodity sold or distributed in India.
       </p>
-      <input type="text" class="table-search" id="rules-search" placeholder="Search by Rule, citation, keyword (e.g. MRP, font, USP)..." style="max-width:100%;margin-bottom:16px">
-      
-      <div id="rules-list-container">
-        <!-- Dynamically rendered rules -->
-      </div>
+      <input type="text" class="intel-search" id="rules-search" placeholder="Search statutory citations (e.g. MRP, Unit Sale Price, font height, Section 36)..." style="width:100%;max-width:100%;margin-bottom:16px">
+      <div id="rules-list-container"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-action" onclick="closeModal('rules-modal')">Close</button>
+    <div class="modal-foot">
+      <button class="gov-nav-btn" onclick="closeModal('rules-modal')">Close Statutory Code</button>
     </div>
   </div>
 </div>
 
 <!-- ═══════════════ MODAL: FIELD INSPECTION CHECKLIST ═══════════════ -->
 <div class="modal-backdrop" id="checklist-modal">
-  <div class="modal-card">
+  <div class="modal-window">
     <div class="modal-head">
-      <h3>📋 On-Field Package Verification Checklist</h3>
+      <h3>📋 On-Field Physical Inspection & Raid Protocol</h3>
       <button class="modal-close" onclick="closeModal('checklist-modal')">&times;</button>
     </div>
     <div class="modal-body">
-      <p style="color:var(--muted);font-size:12.5px">
-        Use this interactive 8-point checklist during market raids and retail inspections to physically verify package compliance.
+      <p style="color:#94a3b8">
+        Official physical package verification protocol for enforcement squads conducting market raids and retail audits.
       </p>
-      <div class="progress-wrap">
-        <div class="progress-fill" id="chk-progress"></div>
+      <div class="meter-bar">
+        <div class="meter-fill" id="chk-progress"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:12px;font-weight:600">
-        <span id="chk-count-label">0 of 8 items verified</span>
-        <button onclick="resetChecklist()" style="background:none;border:none;color:var(--teal);cursor:pointer;font-weight:600">Reset Checklist</button>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:14px;font-weight:700">
+        <span id="chk-count-label" style="color:var(--teal-glow)">0 of 8 verification parameters verified (0%)</span>
+        <button onclick="resetChecklist()" style="background:none;border:none;color:#f87171;cursor:pointer;font-weight:700">Reset Protocol</button>
       </div>
 
       <div id="checklist-items">
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>1. Package Label Integrity</strong><span>Physical label is firmly affixed and not covered by retail price stickers (Rule 4 & 6(1)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>1. Physical Label Firmness & Integrity</strong><span>No secondary stickers placed over manufacturer declarations (Rule 4 & 6(1)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>2. MRP Legibility & Anti-Smudging</strong><span>Printed clearly with "inclusive of all taxes"; no secondary higher stickers or dual MRP (Rule 6(1)(e)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>2. MRP Legibility & Anti-Smudging</strong><span>MRP stated 'inclusive of all taxes'; no scratched-out price or dual pricing sticker (Rule 6(1)(e)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>3. Unit Sale Price (USP) Displayed</strong><span>Mandatory for packages &gt; 1 kg or 1 L; displayed as ₹ per g or ₹ per ml (Rule 6(1)(da)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>3. Unit Sale Price (USP) Displayed</strong><span>Mandatory for commodities &gt; 1 kg or 1 L; declared in ₹ per g or ₹ per ml (Rule 6(1)(da)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>4. Complete Manufacturer / Packer Identity</strong><span>Full street address with state and 6-digit postal PIN code (Rule 6(1)(a)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>4. Complete Manufacturer / Packer Identity</strong><span>Full street address with state and 6-digit postal PIN code (Rule 6(1)(a)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>5. Month & Year of Manufacture / Packing</strong><span>Clearly printed in MM/YYYY format or words; inkjet is legible and unsmudged (Rule 6(1)(d)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>5. Month & Year of Manufacture / Import</strong><span>Printed in MM/YYYY format or words; unsmudged inkjet lot identification (Rule 6(1)(d)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>6. Standard Net Quantity & SI Units</strong><span>Stated in approved units (g, kg, ml, l); no non-standard symbols like "gms" (Rule 6(1)(c)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>6. Standard Net Quantity & SI Units</strong><span>Stated in prescribed SI units (g, kg, ml, l); strictly no non-standard symbols like 'gms' (Rule 6(1)(c)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>7. Customer Care Helpline & Email</strong><span>Valid telephone number, email address, and name of grievance officer (Rule 6(1)(h)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>7. Customer Care Helpline & Email</strong><span>Working telephone number, email, and designated grievance redressal officer (Rule 6(1)(h)).</span></div>
         </label>
-        <label class="chk-row"><input type="checkbox" class="chk-box" onchange="updateChecklist()">
-          <div class="chk-text"><strong>8. Country of Origin (COO)</strong><span>Mandatory declaration for all imported commodities stating country of manufacture (Rule 6(10)).</span></div>
+        <label class="chk-item"><input type="checkbox" class="chk-input" onchange="updateChecklist()">
+          <div class="chk-details"><strong>8. Country of Origin (COO)</strong><span>Mandatory origin statement for all foreign imported commodities (Rule 6(10)).</span></div>
         </label>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-action" onclick="closeModal('checklist-modal')">Done</button>
+    <div class="modal-foot">
+      <button class="gov-nav-btn" onclick="closeModal('checklist-modal')">Complete Protocol</button>
     </div>
   </div>
 </div>
 
 <!-- ═══════════════ MODAL: CONSUMER GRIEVANCE ═══════════════ -->
 <div class="modal-backdrop" id="grievance-modal">
-  <div class="modal-card">
+  <div class="modal-window">
     <div class="modal-head">
-      <h3>🏛️ Consumer Grievance & Enforcement Channels</h3>
+      <h3>🏛️ National Consumer Grievance & Escalation Desk</h3>
       <button class="modal-close" onclick="closeModal('grievance-modal')">&times;</button>
     </div>
     <div class="modal-body">
-      <div style="background:#fdf6e3;border:1px solid #fae5b9;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#8f5b00">
-        Consumers and inspectors can file statutory complaints against overcharging above MRP, missing declarations, and deceptive packaging.
+      <div style="background:rgba(212,175,55,.12);border:1px solid var(--gold);border-radius:10px;padding:14px 18px;margin-bottom:18px;color:#fef08a">
+        Consumers and enforcement squads can register formal statutory grievances against overcharging, altered MRP stickers, and deceptive packaging declarations.
       </div>
       
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-        <div style="border:1px solid var(--border);border-radius:10px;padding:14px">
-          <strong style="color:var(--navy);font-size:14px;display:block;margin-bottom:4px">National Consumer Helpline</strong>
-          <span style="color:var(--muted);font-size:12px;display:block;margin-bottom:8px">Department of Consumer Affairs</span>
-          <p style="font-size:12.5px;margin-bottom:8px">Call <strong>1915</strong> (Toll-Free) or SMS/WhatsApp to <strong>8800001915</strong></p>
-          <button class="btn btn-action" onclick="navigator.clipboard.writeText('1915');toast('Helpline 1915 copied!')">Copy 1915</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <div style="background:#071426;border:1px solid #1f3b60;border-radius:10px;padding:16px">
+          <strong style="color:#fff;font-size:14px;display:block;margin-bottom:4px">National Consumer Helpline (NCH)</strong>
+          <span style="color:#94a3b8;font-size:12px;display:block;margin-bottom:10px">Toll-free consumer grievance hotline</span>
+          <p style="font-size:13px;margin-bottom:10px;color:#cbd5e1">Call <strong>1915</strong> or SMS/WhatsApp to <strong>8800001915</strong></p>
+          <button class="gov-nav-btn" onclick="navigator.clipboard.writeText('1915');toast('Helpline 1915 copied to clipboard!')">Copy 1915</button>
         </div>
-        <div style="border:1px solid var(--border);border-radius:10px;padding:14px">
-          <strong style="color:var(--navy);font-size:14px;display:block;margin-bottom:4px">INGRAM Portal</strong>
-          <span style="color:var(--muted);font-size:12px;display:block;margin-bottom:8px">Integrated Grievance Redressal</span>
-          <p style="font-size:12.5px;margin-bottom:8px">Register grievances and track docket status online.</p>
-          <button class="btn btn-action" onclick="navigator.clipboard.writeText('https://consumerhelpline.gov.in');toast('URL copied!')">consumerhelpline.gov.in</button>
+
+        <div style="background:#071426;border:1px solid #1f3b60;border-radius:10px;padding:16px">
+          <strong style="color:#fff;font-size:14px;display:block;margin-bottom:4px">INGRAM Portal</strong>
+          <span style="color:#94a3b8;font-size:12px;display:block;margin-bottom:10px">Integrated Grievance Redressal</span>
+          <p style="font-size:13px;margin-bottom:10px;color:#cbd5e1">Register digital complaints and track docket status online.</p>
+          <button class="gov-nav-btn" onclick="navigator.clipboard.writeText('https://consumerhelpline.gov.in');toast('Portal URL copied!')">consumerhelpline.gov.in</button>
         </div>
       </div>
 
-      <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px">
-        <strong style="color:var(--navy);font-size:14px;display:block;margin-bottom:4px">e-Daakhil Online Consumer Court</strong>
-        <span style="color:var(--muted);font-size:12px;display:block;margin-bottom:8px">National Consumer Dispute Redressal Commission</span>
-        <p style="font-size:12.5px;margin-bottom:8px">File formal cases for unfair trade practices and dual pricing. Attach SatyaLabel PDF reports as evidentiary Annexures.</p>
-        <button class="btn btn-action" onclick="navigator.clipboard.writeText('https://edaakhil.nic.in');toast('e-Daakhil URL copied!')">edaakhil.nic.in</button>
+      <div style="background:#071426;border:1px solid #1f3b60;border-radius:10px;padding:16px">
+        <strong style="color:#fff;font-size:14px;display:block;margin-bottom:4px">e-Daakhil Online Consumer Dispute Commission</strong>
+        <span style="color:#94a3b8;font-size:12px;display:block;margin-bottom:10px">National Consumer Dispute Redressal Commission</span>
+        <p style="font-size:13px;margin-bottom:10px;color:#cbd5e1">
+          File formal legal claims for unfair trade practices. SatyaLabel PDF evidence reports can be directly attached as evidentiary annexures.
+        </p>
+        <button class="gov-nav-btn" onclick="navigator.clipboard.writeText('https://edaakhil.nic.in');toast('e-Daakhil URL copied!')">edaakhil.nic.in</button>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-action" onclick="closeModal('grievance-modal')">Close</button>
+    <div class="modal-foot">
+      <button class="gov-nav-btn" onclick="closeModal('grievance-modal')">Close Desk</button>
     </div>
   </div>
 </div>
@@ -538,7 +767,17 @@ let map = null, heatLayer = null, cellMarkers = [];
 let allPoints = [], allManufacturers = [], allDistricts = [];
 let showHeatmap = true, showMarkers = true, filterHighRisk = false;
 
-// ── helpers ──────────────────────────────────────────────
+// ── Live IST Clock ─────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour12: false });
+  const clockEl = document.getElementById("live-ist-clock");
+  if (clockEl) clockEl.textContent = timeStr + " IST";
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Helpers ──────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 function toast(msg) {
   const t = $("toast"); t.textContent = msg; t.classList.add("show");
@@ -546,7 +785,7 @@ function toast(msg) {
 }
 async function api(path) {
   const res = await fetch(path, { headers: { Authorization: "Bearer " + token } });
-  if (res.status === 401 || res.status === 403) { showLogin("Session expired — sign in again."); throw new Error("auth"); }
+  if (res.status === 401 || res.status === 403) { showLogin("Session expired — please authenticate."); throw new Error("auth"); }
   if (!res.ok) throw new Error("API " + res.status + " " + path);
   return res.json();
 }
@@ -556,17 +795,26 @@ function qs(extra) {
   return p.toString() ? "?" + p.toString() : "";
 }
 
-// ── auth ─────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────
 function showLogin(msg) {
   token = ""; sessionStorage.removeItem("sl_token");
   $("dash-view").style.display = "none";
   $("login-view").style.display = "flex";
   $("login-error").textContent = msg || "";
 }
+function bypassToCitizenPortal() {
+  $("login-view").style.display = "none";
+  $("dash-view").style.display = "block";
+  if (!map) initMap();
+  refreshAll();
+  initRulesList();
+  toast("Entered Public Citizen Oversight Console");
+}
+
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("login-error").textContent = "";
-  $("login-btn").textContent = "Signing in…";
+  $("login-btn").textContent = "Authenticating with Directorate…";
   try {
     const res = await fetch(API + "/api/v1/auth/login", {
       method: "POST",
@@ -575,7 +823,7 @@ $("login-form").addEventListener("submit", async (e) => {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      $("login-error").textContent = body.detail || ("Login failed (" + res.status + ")");
+      $("login-error").textContent = body.detail || ("Authentication failed (" + res.status + ")");
       return;
     }
     const data = await res.json();
@@ -583,14 +831,14 @@ $("login-form").addEventListener("submit", async (e) => {
     sessionStorage.setItem("sl_token", token);
     enterDashboard();
   } catch (err) {
-    $("login-error").textContent = "Cannot reach server — check your connection.";
+    $("login-error").textContent = "Cannot establish connection with SatyaLabel command core.";
   } finally {
-    $("login-btn").textContent = "Sign in to Enforcement Console";
+    $("login-btn").textContent = "Authenticate & Access Command Center";
   }
 });
 $("logout-btn").addEventListener("click", () => showLogin());
 
-// ── dashboard ────────────────────────────────────────────
+// ── Dashboard Core ───────────────────────────────────────
 function enterDashboard() {
   $("login-view").style.display = "none";
   $("dash-view").style.display = "block";
@@ -598,17 +846,19 @@ function enterDashboard() {
   refreshAll();
   initRulesList();
 }
+
 document.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => {
   document.querySelectorAll(".chip").forEach((x) => x.classList.remove("active"));
   c.classList.add("active");
   days = c.dataset.days;
+  $("time-window-chip").textContent = "WINDOW: " + (days ? days + " DAYS" : "ALL RECORDS");
   refreshAll();
 }));
 
 $("refresh-btn").addEventListener("click", () => {
-  $("refresh-btn").textContent = "🔄 Refreshing…";
+  $("refresh-btn").textContent = "🔄 Syncing…";
   refreshAll().finally(() => {
-    $("refresh-btn").textContent = "🔄 Refresh";
+    $("refresh-btn").textContent = "🔄 Live Sync";
   });
 });
 
@@ -628,11 +878,9 @@ async function refreshAll() {
     renderHeatmap(allPoints);
     filterOffenders();
     filterDistricts();
-
-    const now = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    $("last-updated-text").textContent = "Updated today at " + now;
+    toast("Command telemetry synchronized");
   } catch (err) {
-    if (err.message !== "auth") toast("Failed to load analytics: " + err.message);
+    if (err.message !== "auth") toast("Telemetry synchronization notice: " + err.message);
   }
 }
 
@@ -652,21 +900,29 @@ function renderOverview(o) {
   if (total > 0) {
     const noncompRate = Math.round((noncomp / total) * 100);
     const compRate = Math.round((comp / total) * 100);
-    $("s-noncomp-sub").textContent = noncompRate + "% violation rate";
-    $("s-comp-sub").textContent = compRate + "% compliance rate";
+    $("s-noncomp-sub").textContent = noncompRate + "% of scanned universe";
+    $("s-comp-sub").textContent = compRate + "% full statutory conformance";
   }
 }
 
 function initMap() {
   map = L.map("map", { zoomControl: true }).setView([22.8, 79.6], 5);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  // High-contrast defense/command style basemap
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     maxZoom: 18,
-    attribution: "© OpenStreetMap contributors",
+    attribution: "© OpenStreetMap contributors, © CARTO",
   }).addTo(map);
+
   const legend = L.control({ position: "bottomright" });
   legend.onAdd = function () {
     const d = L.DomUtil.create("div", "legend");
-    d.innerHTML = "<b>Violation Density</b>🟥 High Risk (&gt;50%)<br>🟧 Medium Risk<br>🟨 Low Risk<br>Circle size = Scan volume";
+    d.style.background = "#0b2545";
+    d.style.color = "#fff";
+    d.style.padding = "10px 14px";
+    d.style.borderRadius = "8px";
+    d.style.border = "1px solid #1f426b";
+    d.style.fontSize = "11.5px";
+    d.innerHTML = "<b style='color:#38bdf8'>NATIONAL THREAT DENSITY</b><br>🟥 High Severity (&gt;50% non-compliance)<br>🟧 Moderate Verification Queue<br>🟨 Low Infraction Density<br>Radius = Regional Inspection Volume";
     return d;
   };
   legend.addTo(map);
@@ -687,11 +943,11 @@ function renderHeatmap(points) {
     visiblePoints = points.filter((p) => (p.violation_rate || 0) >= 0.5);
   }
 
-  $("map-stats-badge").textContent = visiblePoints.length + " grid cells · " +
-    visiblePoints.reduce((acc, p) => acc + (p.total_scans || 0), 0) + " scans";
+  $("map-telemetry").textContent = visiblePoints.length + " ACTIVE CELLS · " +
+    visiblePoints.reduce((acc, p) => acc + (p.total_scans || 0), 0) + " SURVEILLANCE GEOTAGS";
 
   if (!visiblePoints.length) {
-    L.popup().setLatLng([22.8, 79.6]).setContent("No geotagged scans matching this filter in this window.").openOn(map);
+    L.popup().setLatLng([22.8, 79.6]).setContent("<div style='color:#051329'><strong>No infractions matching criteria in active surveillance window.</strong></div>").openOn(map);
     return;
   }
 
@@ -699,7 +955,7 @@ function renderHeatmap(points) {
     const maxViol = Math.max(...visiblePoints.map((p) => p.violations), 1);
     const heatData = visiblePoints.map((p) => [p.latitude, p.longitude, 0.15 + 0.85 * (p.violations / maxViol)]);
     heatLayer = L.heatLayer(heatData, {
-      radius: 28, blur: 20, maxZoom: 12,
+      radius: 30, blur: 22, maxZoom: 12,
       gradient: { 0.2: "#f9d423", 0.5: "#ff8c42", 0.8: "#e53935", 1.0: "#8e0000" },
     }).addTo(map);
   }
@@ -709,20 +965,20 @@ function renderHeatmap(points) {
       const rate = Math.round((p.violation_rate || 0) * 100);
       const isHigh = rate >= 50;
       const marker = L.circleMarker([p.latitude, p.longitude], {
-        radius: 5 + Math.min(14, Math.sqrt(p.total_scans) * 2),
-        color: isHigh ? "#c0392b" : "#b7791f",
-        weight: 1.5,
-        fillColor: isHigh ? "#c0392b" : "#ffffff",
-        fillOpacity: isHigh ? 0.45 : 0.2,
-        opacity: 0.8,
+        radius: 6 + Math.min(16, Math.sqrt(p.total_scans) * 2.5),
+        color: isHigh ? "#ef4444" : "#f59e0b",
+        weight: 1.8,
+        fillColor: isHigh ? "#ef4444" : "#ffffff",
+        fillOpacity: isHigh ? 0.5 : 0.25,
+        opacity: 0.9,
       }).bindPopup(
-        "<div style='font-family:sans-serif;font-size:12px'>" +
-        "<strong style='font-size:13px;color:#0b2545'>Grid Cell (" + p.latitude.toFixed(3) + ", " + p.longitude.toFixed(3) + ")</strong><br><hr style='margin:4px 0;border:0;border-top:1px solid #ddd'>" +
-        "Total scans recorded: <b>" + p.total_scans + "</b><br>" +
-        "Non-compliant violations: <b style='color:#c0392b'>" + p.violations + "</b> (" + rate + "%)<br>" +
-        "Needs verification: <b>" + p.needs_verification + "</b><br>" +
-        "<div style='margin-top:6px;padding:3px 6px;background:#fdecea;color:#c0392b;border-radius:4px;font-size:11px;font-weight:bold'>" +
-        (isHigh ? "⚠️ High Enforcement Priority" : "Standard Surveillance Cell") +
+        "<div style='font-family:sans-serif;font-size:12px;color:#0b2545'>" +
+        "<strong style='font-size:13px;color:#0b2545'>GRID SECTOR (" + p.latitude.toFixed(3) + ", " + p.longitude.toFixed(3) + ")</strong><br><hr style='margin:4px 0;border:0;border-top:1px solid #ddd'>" +
+        "Commodities Audited: <b>" + p.total_scans + "</b><br>" +
+        "Confirmed Violations: <b style='color:#c0392b'>" + p.violations + "</b> (" + rate + "%)<br>" +
+        "Needs Physical Verification: <b>" + p.needs_verification + "</b><br>" +
+        "<div style='margin-top:6px;padding:3px 6px;background:" + (isHigh ? "#fee2e2" : "#fef3c7") + ";color:" + (isHigh ? "#b91c1c" : "#b45309") + ";border-radius:4px;font-size:11px;font-weight:bold'>" +
+        (isHigh ? "🚨 PRIORITY RAID SECTOR" : "STANDARD SURVEILLANCE CELL") +
         "</div></div>"
       );
       marker.addTo(map);
@@ -733,7 +989,7 @@ function renderHeatmap(points) {
   map.fitBounds(L.latLngBounds(visiblePoints.map((p) => [p.latitude, p.longitude])).pad(0.25), { maxZoom: 12 });
 }
 
-// Map layer toggle controls
+// Map Toggles
 $("toggle-heat").addEventListener("click", () => {
   showHeatmap = !showHeatmap;
   $("toggle-heat").classList.toggle("active", showHeatmap);
@@ -750,26 +1006,26 @@ $("toggle-highrisk").addEventListener("click", () => {
   renderHeatmap(allPoints);
 });
 
-// ── Search & Filter for Tables ───────────────────────────
+// ── Tables Rendering ─────────────────────────────────────
 function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"; }
 
 function filterOffenders() {
   const query = ($("offender-search").value || "").toLowerCase();
   const items = allManufacturers.filter((m) => !query || (m.manufacturer || "").toLowerCase().includes(query));
-  $("offender-count").textContent = items.length + " manufacturer(s)";
+  $("offender-count").textContent = items.length + " entity record(s)";
   
   const wrap = $("offenders-wrap");
   if (!items.length) {
-    wrap.innerHTML = '<div class="empty">No manufacturers matching search criteria.</div>';
+    wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#64748b">No manufacturer entities found matching criteria.</div>';
     return;
   }
-  let html = "<table><thead><tr><th>Rank</th><th>Manufacturer</th><th>Scans</th><th>Violation Rate</th><th>Outcomes</th><th>Last Recorded</th></tr></thead><tbody>";
+  let html = "<table><thead><tr><th>Priority</th><th>Manufacturer / Packer</th><th>Audited</th><th>Violation Rate</th><th>Dispositions</th><th>Last Detected</th></tr></thead><tbody>";
   items.forEach((m, idx) => {
     const rate = m.total_scans > 0 ? Math.round((m.non_compliant / m.total_scans) * 100) : 0;
     html += "<tr><td>#" + (idx + 1) + "</td>" +
-      "<td><strong>" + esc(m.manufacturer) + "</strong></td>" +
+      "<td><strong style='color:#fff'>" + esc(m.manufacturer) + "</strong></td>" +
       "<td>" + m.total_scans + "</td>" +
-      "<td><div class='rate-bar'><div class='rate-fill' style='width:" + rate + "%'></div></div>" + rate + "%</td>" +
+      "<td><div class='rate-track'><div class='rate-bar-fill' style='width:" + rate + "%'></div></div>" + rate + "%</td>" +
       "<td><span class='badge bad'>" + m.non_compliant + " ✗</span> <span class='badge warn'>" + m.needs_verification + " ?</span> <span class='badge good'>" + m.compliant + " ✓</span></td>" +
       "<td>" + fmtDate(m.last_seen) + "</td></tr>";
   });
@@ -780,20 +1036,20 @@ $("offender-search").addEventListener("input", filterOffenders);
 function filterDistricts() {
   const query = ($("district-search").value || "").toLowerCase();
   const items = allDistricts.filter((d) => !query || (d.district || "").toLowerCase().includes(query));
-  $("district-count").textContent = items.length + " district(s)";
+  $("district-count").textContent = items.length + " jurisdiction(s)";
 
   const wrap = $("districts-wrap");
   if (!items.length) {
-    wrap.innerHTML = '<div class="empty">No districts matching search criteria.</div>';
+    wrap.innerHTML = '<div style="padding:40px;text-align:center;color:#64748b">No district jurisdictions matching query.</div>';
     return;
   }
-  let html = "<table><thead><tr><th>District Jurisdiction</th><th>Total Scans</th><th>Violations</th><th>Needs Verif.</th><th>Inspectors</th></tr></thead><tbody>";
+  let html = "<table><thead><tr><th>Jurisdiction District</th><th>Audited</th><th>Violations</th><th>Needs Verif.</th><th>Officers Deployed</th></tr></thead><tbody>";
   for (const d of items) {
-    html += "<tr><td><strong>" + esc(d.district) + "</strong></td>" +
+    html += "<tr><td><strong style='color:#fff'>" + esc(d.district) + "</strong></td>" +
       "<td>" + d.total_scans + "</td>" +
-      "<td><span class='badge bad'>" + d.non_compliant + "</span></td>" +
+      "<td><span class='badge bad'>" + d.non_compliant + " non-compliant</span></td>" +
       "<td>" + d.needs_verification + "</td>" +
-      "<td>" + d.contributors + " officer(s)</td></tr>";
+      "<td><span style='color:#38bdf8'>" + d.contributors + " officer(s)</span></td></tr>";
   }
   wrap.innerHTML = html + "</tbody></table>";
 }
@@ -810,14 +1066,14 @@ $("export-btn").addEventListener("click", async () => {
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "satyalabel_evidence.csv";
+    a.download = "satyalabel_evidentiary_docket.csv";
     a.click();
     URL.revokeObjectURL(a.href);
-    toast("Evidence CSV downloaded successfully");
-  } catch (err) { toast("Export failed: " + err.message); }
+    toast("Evidentiary CSV dossier exported with SHA-256 validity");
+  } catch (err) { toast("Export notice: " + err.message); }
 });
 
-// ── Modals logic ─────────────────────────────────────────
+// ── Modals & Interactive Tools ───────────────────────────
 function openModal(id) { $(id).classList.add("open"); }
 function closeModal(id) { $(id).classList.remove("open"); }
 
@@ -825,38 +1081,37 @@ $("open-rules-btn").addEventListener("click", () => openModal("rules-modal"));
 $("open-checklist-btn").addEventListener("click", () => openModal("checklist-modal"));
 $("open-grievance-btn").addEventListener("click", () => openModal("grievance-modal"));
 
-// Close on backdrop click
 document.querySelectorAll(".modal-backdrop").forEach((b) => {
   b.addEventListener("click", (e) => {
     if (e.target === b) b.classList.remove("open");
   });
 });
 
-// Checklist state
+// Checklist State
 function updateChecklist() {
-  const boxes = document.querySelectorAll("#checklist-items .chk-box");
+  const boxes = document.querySelectorAll("#checklist-items .chk-input");
   const checked = Array.from(boxes).filter((b) => b.checked).length;
   const pct = Math.round((checked / boxes.length) * 100);
   $("chk-progress").style.width = pct + "%";
-  $("chk-count-label").textContent = checked + " of " + boxes.length + " items verified (" + pct + "%)";
+  $("chk-count-label").textContent = checked + " of " + boxes.length + " verification parameters verified (" + pct + "%)";
 }
 function resetChecklist() {
-  document.querySelectorAll("#checklist-items .chk-box").forEach((b) => b.checked = false);
+  document.querySelectorAll("#checklist-items .chk-input").forEach((b) => b.checked = false);
   updateChecklist();
 }
 
-// Rules standards library
+// Statutory Rules Data
 const kRulesData = [
-  { num: "Rule 6(1)(a)", title: "Manufacturer & Packer Identity", cat: "Mandatory Declarations", desc: "Every package must bear the name and complete physical address of the manufacturer, packer, or importer including city and postal PIN code.", penalty: "Section 36(1): Fine up to ₹25,000 (1st offence), ₹50,000 (2nd offence)." },
-  { num: "Rule 6(1)(b)", title: "Common or Generic Commodity Name", cat: "Mandatory Declarations", desc: "The generic commodity name must be prominently declared alongside any brand/fancy name.", penalty: "Section 48 compounding fine up to ₹25,000." },
-  { num: "Rule 6(1)(c)", title: "Net Quantity in Standard SI Units", cat: "Measurements", desc: "Declared in terms of standard weight or measure (g, kg, ml, l) with correct symbols (not 'gms' or 'liters').", penalty: "Section 36(1) & (2) penalties for non-standard units." },
-  { num: "Rule 6(1)(d)", title: "Month & Year of Manufacture / Pre-packing", cat: "Dates & Expiry", desc: "Month and year of manufacture or packaging must be declared in legible MM/YYYY or words.", penalty: "Rule 32 compounding provision; up to ₹25,000." },
-  { num: "Rule 6(1)(da)", title: "Unit Sale Price (USP)", cat: "Pricing & MRP", desc: "Mandatory declaration of price per gram, kg, or ml on all commodities where net quantity > 1 kg or 1 L.", penalty: "Enforced under 2021 Rules Amendment as missing statutory declaration." },
-  { num: "Rule 6(1)(e)", title: "Maximum Retail Price (MRP) & Dual Pricing", cat: "Pricing & MRP", desc: "Must state 'MRP ₹... incl. of all taxes'. Strict prohibition against dual pricing stickers or smudged prices.", penalty: "Section 36(1) & Section 52; strict liability for altered price stickers." },
-  { num: "Rule 6(1)(g)", title: "Expiry / Best Before Date", cat: "Dates & Expiry", desc: "Mandatory on perishable commodities that deteriorate over time.", penalty: "Critical violation triggering immediate product seizure under Section 15." },
-  { num: "Rule 6(1)(h)", title: "Consumer Care & Grievance Contact", cat: "Mandatory Declarations", desc: "Name, address, phone number, and email of grievance officer must be clearly visible.", penalty: "Section 36(1) penalty; violation cited in consumer forum complaints." },
-  { num: "Rule 9(1)", title: "Minimum Height of Letters and Numerals", cat: "Font & Sizing", desc: "Mandates font height thresholds ranging from 1.0 mm for small packs to 6.0 mm for large bulk packages.", penalty: "Rule 9 non-compliance fine." },
-  { num: "Section 36", title: "Offences for Non-Standard Packages", cat: "Penalties & Legal", desc: "Criminal penalties for manufacturing, packing, or selling goods that violate packaging declarations.", penalty: "Up to ₹1,00,000 fine and/or imprisonment up to 1 year for subsequent offences." }
+  { num: "Rule 6(1)(a)", title: "Manufacturer, Packer & Importer Identity", cat: "Mandatory Declarations", desc: "Every package must bear the complete name and physical premises address of the manufacturer, packer, or foreign importer, including postal PIN code.", penalty: "Section 36(1): Fine up to ₹25,000 (1st offence), ₹50,000 (2nd offence)." },
+  { num: "Rule 6(1)(b)", title: "Generic or Common Commodity Name", cat: "Mandatory Declarations", desc: "The generic commodity name must be prominently declared in equal prominence alongside any branding or promotional titles.", penalty: "Section 48 compounding fine up to ₹25,000." },
+  { num: "Rule 6(1)(c)", title: "Net Quantity in Standard SI Units", cat: "Weights & Measures", desc: "Net quantity declared in terms of standard weight or measure (g, kg, ml, l) with correct symbols. Non-standard terms like 'gms' or 'liters' are prohibited.", penalty: "Section 36(1) & (2) penalties for non-standard units." },
+  { num: "Rule 6(1)(d)", title: "Month & Year of Manufacture / Packaging", cat: "Dates & Expiry", desc: "Month and year of manufacture or pre-packing must be declared in legible MM/YYYY format or words.", penalty: "Rule 32 compounding provision; up to ₹25,000." },
+  { num: "Rule 6(1)(da)", title: "Unit Sale Price (USP)", cat: "Pricing & Anti-Overcharging", desc: "Mandatory declaration of price per gram, kilogram, or millilitre on all commodities where net quantity > 1 kg or 1 L.", penalty: "Enforced under 2021 Rules Amendment as missing statutory declaration." },
+  { num: "Rule 6(1)(e)", title: "Maximum Retail Price (MRP) & Dual Pricing", cat: "Pricing & Anti-Overcharging", desc: "Retail price must state 'MRP ₹... incl. of all taxes'. Dual price stickers or alteration of MRP is an uncompoundable offence.", penalty: "Section 36(1) & Section 52; strict liability for altered price stickers." },
+  { num: "Rule 6(1)(g)", title: "Expiry / Best Before / Use By Date", cat: "Dates & Expiry", desc: "Mandatory on perishable commodities that may deteriorate after a period of time.", penalty: "Critical violation triggering immediate product seizure under Section 15." },
+  { num: "Rule 6(1)(h)", title: "Consumer Redressal Helpline & Officer", cat: "Mandatory Declarations", desc: "Complete name, address, telephone number, and working email of consumer grievance redressal officer.", penalty: "Section 36(1) penalty; violation cited in CCPA consumer court complaints." },
+  { num: "Rule 9(1)", title: "Minimum Font Height of Numerals & Letters", cat: "Typography & Sizing", desc: "Table 1 prescribes mandatory font heights (1.0 mm up to 6.0 mm) depending on package surface area and net quantity.", penalty: "Rule 9 non-compliance fine." },
+  { num: "Section 36", title: "Statutory Offences for Non-Standard Packages", cat: "Penalties & Legal", desc: "Pecuniary and criminal penalties for manufacturing, packing, or exposing for sale any non-conforming pre-packaged goods.", penalty: "Up to ₹1,00,000 fine and/or imprisonment up to 1 year for subsequent offences." }
 ];
 
 function initRulesList() {
@@ -868,18 +1123,18 @@ function initRulesList() {
 
   let html = "";
   for (const r of filtered) {
-    html += '<div class="rule-item">' +
-      '<div class="rule-top"><span class="rule-num">' + r.num + '</span><span class="rule-tag">' + r.cat + '</span></div>' +
-      '<div class="rule-title">' + r.title + '</div>' +
-      '<div class="rule-desc">' + r.desc + '</div>' +
-      '<div class="rule-penalty">⚖️ ' + r.penalty + '</div>' +
+    html += '<div class="rule-card">' +
+      '<div class="rule-top"><span class="rule-citation">' + r.num + '</span><span class="rule-tag">' + r.cat + '</span></div>' +
+      '<div style="font-weight:700;color:#fff;margin-bottom:4px">' + r.title + '</div>' +
+      '<div class="rule-text">' + r.desc + '</div>' +
+      '<div class="rule-statutory-penalty">⚖️ <strong>Statutory Fine:</strong> ' + r.penalty + '</div>' +
       '</div>';
   }
-  container.innerHTML = html || '<div class="empty">No matching rules found.</div>';
+  container.innerHTML = html || '<div style="padding:20px;text-align:center;color:#64748b">No statutory rules matching search.</div>';
 }
 $("rules-search").addEventListener("input", initRulesList);
 
-// Auto-enter if token is present
+// Auto-enter if token exists
 if (token) enterDashboard();
 </script>
 </body>

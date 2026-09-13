@@ -71,7 +71,9 @@ async def health_check():
     return {"status": "ok", "service": "SatyaLabel", "version": settings.VERSION}
 
 
+@app.get("/", include_in_schema=False)
 @app.get("/dashboard", include_in_schema=False)
 async def enforcement_dashboard():
-    """Interactive Consumer Affairs dashboard (heatmap, offenders, districts)."""
+    """Interactive Consumer Affairs National Command Center (landing portal, heatmap, offenders, districts)."""
     return FileResponse(STATIC_DIR / "dashboard.html")
+
